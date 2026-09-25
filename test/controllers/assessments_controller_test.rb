@@ -22,6 +22,8 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_select "h1", "Get a human on this."
     assert_select ".triage-tag__strip.is-torn", 2
+    assert_select ".triage-tag__strip--red.is-kept"
+    assert_select ".verdict-badge.verdict-badge--yes", text: /Human review/
     assert_select "a[href=?]", "https://github.com/acme/web/pull/7", text: /Open on GitHub/
     assert_select "progress", 3
   end

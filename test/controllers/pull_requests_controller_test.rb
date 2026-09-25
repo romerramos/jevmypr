@@ -25,6 +25,18 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
     assert_select "aside#repository_sidebar[data-turbo-permanent] turbo-frame#repositories[src=?]", repositories_path
   end
 
+  test "loading states are declared in the markup for the CSS to pick up" do
+    stub_github_pull_requests([ pull_request_node(number: 7, title: "Fix login redirect") ])
+
+    get repository_pull_requests_path(owner: "acme", repo: "web")
+
+    assert_select "turbo-frame#pull_request_results[data-loading-label='Loading pull requests…']"
+    assert_select "turbo-frame#repositories[data-loading-label='Loading repositories…']"
+    assert_select "section[data-visit-loading=pane]"
+    assert_select "form.ask-jev", 1
+    assert_select ".ask-jev-overlay[role=status]", text: /Jev is reading the diff/
+  end
+
   test "repository names with dots route correctly" do
     stub_github_pull_requests([])
 

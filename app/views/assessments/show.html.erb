@@ -9,13 +9,17 @@
     Pull requests in <%= @assessment.repo_full_name %>
   <% end %>
 
-  <section class="mt-6 grid items-start gap-14 md:grid-cols-[auto_minmax(0,1fr)] md:gap-20">
-    <div class="order-2 flex justify-center pt-16 md:order-1 md:pt-20">
+  <section class="mt-6 grid items-start gap-14 md:grid-cols-[auto_minmax(0,1fr)] md:gap-12 lg:gap-20">
+    <div class="flex justify-center max-md:hidden">
       <%= render "shared/triage_tag", verdict: @assessment.choice, tilt: "-4deg",
             fields: { repo: @assessment.repo_full_name, pr: "##{@assessment.pr_number}", title: @assessment.pr_title } %>
     </div>
 
-    <div class="order-1 min-w-0 md:order-2">
+    <div class="min-w-0">
+      <p class="verdict-badge verdict-badge--<%= @assessment.choice %> mb-5 md:hidden">
+        <%= lucide_icon verdict[:icon], class: "size-4", "aria-hidden": true %>
+        <%= verdict[:label] %>
+      </p>
       <h1 class="font-display text-4xl font-extrabold leading-[1.05] sm:text-5xl"><%= verdict[:headline] %></h1>
       <p class="mt-4 max-w-xl text-lg leading-relaxed text-base-content/75"><%= verdict[:summary] %></p>
 

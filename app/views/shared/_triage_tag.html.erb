@@ -1,39 +1,58 @@
-<%# Triage tag. Pass verdict: "yes" / "llm_enough" / "no" to tear off the strips below it; nil leaves a blank tag. %>
+<%#
+  Triage tag illustration.
+  Locals: verdict ("yes" / "llm_enough" / "no", tears off the strips below it; nil = blank tag),
+          fields ({ repo:, pr:, title: }), tilt (CSS angle), settle (swing in and settle on load).
+%>
 <% verdict = local_assigns[:verdict] %>
 <% fields = local_assigns.fetch(:fields, {}) %>
 <% strip_colors = { "yes" => "red", "llm_enough" => "yellow", "no" => "green" } %>
 <% strips = PrAssessment::VERDICTS.map { |key, info| { key: key, label: info[:label], tone: strip_colors.fetch(key), icon: info[:icon] } } %>
 <% kept = verdict ? strips.index { |s| s[:key] == verdict } : strips.size - 1 %>
+<% torn_count = strips.size - 1 - kept %>
+<% classes = [ "triage-tag", ("has-verdict" if verdict && torn_count.positive?), ("is-settling" if local_assigns[:settle]) ] %>
 
-<figure class="triage-tag" style="--tag-tilt: <%= local_assigns.fetch(:tilt, "-3deg") %>" aria-label="<%= verdict ? "Triage tag: #{strips[kept][:label]}" : "Blank triage tag" %>">
-  <svg class="triage-tag__string" viewBox="0 0 112 96" fill="none" aria-hidden="true">
-    <path d="M56 92 C 40 60, 10 50, 4 0 M56 92 C 72 60, 102 50, 108 0" stroke="currentColor" stroke-width="1.5" />
+<figure class="<%= classes.compact.join(" ") %>" style="--tag-tilt: <%= local_assigns.fetch(:tilt, "-3deg") %>; --torn-count: <%= torn_count %>"
+        aria-label="<%= verdict ? "Triage tag: #{strips[kept][:label]}" : "Blank triage tag" %>">
+  <svg class="triage-tag__cord triage-tag__cord--back" viewBox="0 0 60 150" aria-hidden="true">
+    <path class="cord-edge" d="M30 64C39 86 40 108 36 126"/>
+    <path class="cord" d="M30 64C39 86 40 108 36 126"/>
+    <path class="cord-twist" d="M30 64C39 86 40 108 36 126"/>
   </svg>
 
   <div class="triage-tag__card">
-    <span class="triage-tag__hole" aria-hidden="true"></span>
+    <span class="triage-tag__washer" aria-hidden="true"><span class="triage-tag__eyelet"></span></span>
 
     <div class="triage-tag__body">
-      <p class="font-display text-xl font-extrabold leading-tight">Pull request triage</p>
+      <p class="triage-tag__serial">Nº <%= fields[:pr].to_s.delete("#").presence&.rjust(4, "0") || "····" %></p>
+      <p class="triage-tag__title">Pull request triage</p>
 
-      <dl class="mt-3 text-sm">
+      <dl class="mt-2">
         <% { "Repository" => fields[:repo], "Pull request" => fields[:pr], "Title" => fields[:title] }.each do |label, value| %>
           <div class="triage-tag__field">
-            <dt class="text-xs opacity-60"><%= label %></dt>
-            <dd class="min-h-5 truncate font-medium"><%= value %></dd>
+            <dt><%= label %></dt>
+            <dd class="truncate"><%= value %></dd>
           </div>
         <% end %>
       </dl>
     </div>
+  </div>
 
+  <div class="triage-tag__strips">
     <% strips.each_with_index do |strip, index| %>
-      <% torn = index > kept %>
-      <div class="triage-tag__strip triage-tag__strip--<%= strip[:tone] %> <%= "is-torn" if torn %>"
+      <% state = if index > kept then "is-torn" elsif index == kept && torn_count.positive? then "is-kept" end %>
+      <div class="triage-tag__strip triage-tag__strip--<%= strip[:tone] %> <%= state %>"
            style="--tear-order: <%= strips.size - 1 - index %>"
-           <%= "aria-hidden=true" if torn %>>
+           <%= "aria-hidden=true" if state == "is-torn" %>>
         <span><%= strip[:label] %></span>
         <%= lucide_icon strip[:icon], class: "size-4", "aria-hidden": true %>
       </div>
     <% end %>
   </div>
+
+  <svg class="triage-tag__cord triage-tag__cord--front" viewBox="0 0 60 150" aria-hidden="true">
+    <path class="cord-edge" d="M30 0V62M30 64C21 86 21 124 30 146"/>
+    <path class="cord" d="M30 0V62M30 64C21 86 21 124 30 146"/>
+    <path class="cord-twist" d="M30 0V62M30 64C21 86 21 124 30 146"/>
+    <ellipse cx="30" cy="64" rx="4" ry="3.3" fill="#DCD3C1" stroke="#6F6556" stroke-opacity="0.55" stroke-width="0.9"/>
+  </svg>
 </figure>
