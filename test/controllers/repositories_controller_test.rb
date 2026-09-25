@@ -14,6 +14,14 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[data-repo='acme/secret-api'] svg[aria-label='Private']"
   end
 
+  test "links to the app's access settings for missing private or organization repositories" do
+    stub_github_repositories("acme/web")
+
+    get repositories_path
+
+    assert_select "turbo-frame#repositories a[href^='https://github.com/settings/connections/applications/']", text: /Review this app's access/
+  end
+
   test "filters by search terms and explains an empty result" do
     stub_github_repositories("acme/web")
 

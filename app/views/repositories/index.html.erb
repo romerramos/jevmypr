@@ -27,4 +27,9 @@
       <% end %>
     </ul>
   <% end %>
+
+  <p class="border-t border-base-300 px-4 py-3 text-sm text-base-content/60">
+    Missing a private or organization repository?
+    <%= link_to "Review this app's access on GitHub", github_app_access_url, target: "_blank", rel: "noopener", class: "link", data: { turbo_frame: "_top" } %>
+  </p>
 <% end %>
