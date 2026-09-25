@@ -1,19 +1,29 @@
 <%= turbo_frame_tag "pull_requests", class: "flex flex-1 flex-col" do %>
-  <%= form_with url: pull_requests_path, method: :get, class: "flex items-center gap-3 border-b border-base-300 bg-base-200/60 p-3",
-        data: { turbo_frame: "pull_request_results", controller: "debounce-search", action: "input->debounce-search#submit" } do |form| %>
-    <%= form.hidden_field :repo, value: @repo %>
-    <label class="input w-full">
-      <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
-      <%= form.search_field :q, value: @query, placeholder: "Search #{@repo} by title, #number or author",
-            autocomplete: "off", class: "grow", "aria-label": "Search pull requests" %>
-    </label>
-    <%= link_to "https://github.com/#{@repo}/pulls", target: "_blank", rel: "noopener", class: "btn btn-ghost btn-square btn-sm shrink-0",
-          "aria-label": "Open #{@repo} pull requests on GitHub", data: { turbo_frame: "_top" } do %>
-      <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
-    <% end %>
-  <% end %>
+  <div class="z-10 border-b border-base-300 bg-base-200 max-md:sticky max-md:top-0">
+    <div class="flex items-center gap-1 px-2 pt-2 md:hidden">
+      <button type="button" class="btn btn-ghost btn-sm gap-1.5" data-action="picker#showRepositories">
+        <%= lucide_icon "arrow-left", class: "size-4", "aria-hidden": true %>
+        Repositories
+      </button>
+      <span class="min-w-0 truncate text-sm font-semibold"><%= @repo %></span>
+    </div>
 
-  <%= turbo_frame_tag "pull_request_results", class: "block max-h-[32rem] flex-1 overflow-x-hidden overflow-y-auto" do %>
+    <%= form_with url: pull_requests_path, method: :get, class: "flex items-center gap-3 p-3",
+          data: { turbo_frame: "pull_request_results", controller: "debounce-search", action: "input->debounce-search#submit" } do |form| %>
+      <%= form.hidden_field :repo, value: @repo %>
+      <label class="input w-full">
+        <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
+        <%= form.search_field :q, value: @query, placeholder: "Search #{@repo} by title, #number or author",
+              autocomplete: "off", class: "grow", "aria-label": "Search pull requests" %>
+      </label>
+      <%= link_to "https://github.com/#{@repo}/pulls", target: "_blank", rel: "noopener", class: "btn btn-ghost btn-square btn-sm shrink-0",
+            "aria-label": "Open #{@repo} pull requests on GitHub", data: { turbo_frame: "_top" } do %>
+        <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
+      <% end %>
+    <% end %>
+  </div>
+
+  <%= turbo_frame_tag "pull_request_results", class: "block flex-1 overflow-x-hidden md:max-h-[32rem] md:overflow-y-auto" do %>
     <% if @pull_requests.empty? %>
       <div class="flex flex-col items-center justify-center gap-3 p-10 text-center text-base-content/60">
         <%= lucide_icon "git-pull-request", class: "size-8 opacity-40", "aria-hidden": true %>

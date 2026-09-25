@@ -4,8 +4,13 @@ import { Controller } from "@hotwired/stimulus"
 //   "/"        focus the repository search
 //   ↓ / ↑      move through the list in the current pane (from its search box too)
 //   Enter      open the focused repository or ask Jev about the focused pull request
+//
+// On phones the panes stack, so only one shows at a time: picking a repository switches the
+// panes to "pulls", and the back button returns to the repository list where the user left it.
+const PHONE = window.matchMedia("(max-width: 47.99rem)")
+
 export default class extends Controller {
-  static targets = ["search"]
+  static targets = ["search", "panes", "loading"]
 
   focusSearch(event) {
     if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return
@@ -48,8 +53,28 @@ export default class extends Controller {
     link.setAttribute("aria-current", "true")
     this.element.querySelectorAll("input[type=hidden][name=repo]").forEach((input) => (input.value = link.dataset.repo))
 
+    this.#setRepoInUrl(link.dataset.repo)
+    this.#showLoadingPullRequests()
+
+    this.repositoryScroll = window.scrollY
+    this.panesTarget.dataset.view = "pulls"
+    if (PHONE.matches) this.panesTarget.scrollIntoView({ block: "start" })
+  }
+
+  showRepositories() {
+    this.panesTarget.dataset.view = "repos"
+    this.#setRepoInUrl(null)
+    window.scrollTo({ top: this.repositoryScroll ?? this.panesTarget.offsetTop })
+  }
+
+  #showLoadingPullRequests() {
+    const frame = this.element.querySelector("turbo-frame#pull_requests")
+    if (frame && this.hasLoadingTarget) frame.replaceChildren(this.loadingTarget.content.cloneNode(true))
+  }
+
+  #setRepoInUrl(repo) {
     const url = new URL(window.location.href)
-    url.searchParams.set("repo", link.dataset.repo)
+    repo ? url.searchParams.set("repo", repo) : url.searchParams.delete("repo")
     history.replaceState(history.state, "", url)
   }
 }
