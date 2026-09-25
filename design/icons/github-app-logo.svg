@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#24344A"/>
+      <stop offset="1" stop-color="#141C27"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F9F4EA"/>
+      <stop offset="1" stop-color="#EEE3CC"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="washer" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#E6D5B2"/>
+      <stop offset="0.7" stop-color="#CDB688"/>
+      <stop offset="1" stop-color="#BBA170"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#F4F6F8"/>
+      <stop offset="0.3" stop-color="#8E97A1"/>
+      <stop offset="0.55" stop-color="#E8ECF0"/>
+      <stop offset="0.8" stop-color="#7C8590"/>
+      <stop offset="1" stop-color="#D9DEE3"/>
+    </linearGradient>
+    <linearGradient id="stripShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.06"/>
+    </linearGradient>
+    <filter id="grain" filterUnits="userSpaceOnUse" x="130" y="130" width="260" height="340">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="4"/>
+      <feColorMatrix values="0 0 0 0 0.42  0 0 0 0 0.34  0 0 0 0 0.2  0 0 0 0.3 0"/>
+    </filter>
+    <filter id="soft" filterUnits="userSpaceOnUse" x="60" y="60" width="400" height="480">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="contact" filterUnits="userSpaceOnUse" x="100" y="100" width="320" height="400">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+    <path id="tag" d="M188 150H324L366 192V440Q366 448 358 448H154Q146 448 146 440V192Z"/>
+    <clipPath id="tagClip"><use href="#tag"/></clipPath>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <g transform="translate(256 292) scale(1.1) translate(-256 -292) rotate(-8 256 300)">
+    <!-- back strand of the cord, disappearing behind the card -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M256 112C271 128 273 142 268 156" stroke="#5F5646" stroke-opacity="0.55" stroke-width="8"/>
+      <path d="M256 112C271 128 273 142 268 156" stroke="#D9CFBD" stroke-width="5.5"/>
+    </g>
+
+    <use href="#tag" fill="#000" fill-opacity="0.4" filter="url(#soft)" transform="translate(0 18)"/>
+    <use href="#tag" fill="#000" fill-opacity="0.35" filter="url(#contact)" transform="translate(0 4)"/>
+    <g>
+      <use href="#tag" fill="url(#card)"/>
+      <g clip-path="url(#tagClip)">
+        <rect x="140" y="140" width="240" height="320" filter="url(#grain)"/>
+        <rect x="140" y="140" width="240" height="320" fill="url(#sheen)"/>
+        <!-- printed title, filled-in fields -->
+        <rect x="172" y="244" width="124" height="10" rx="5" fill="#1D2530" fill-opacity="0.85"/>
+        <rect x="316" y="178" width="30" height="7" rx="3.5" fill="#9C3B2E" fill-opacity="0.75"/>
+        <rect x="172" y="276" width="100" height="7" rx="3.5" fill="#22386A" fill-opacity="0.85"/>
+        <path d="M172 292H340" stroke="#1D2530" stroke-opacity="0.35" stroke-width="1.6" stroke-dasharray="1.6 3"/>
+        <rect x="172" y="306" width="140" height="7" rx="3.5" fill="#22386A" fill-opacity="0.85"/>
+        <path d="M172 322H340" stroke="#1D2530" stroke-opacity="0.35" stroke-width="1.6" stroke-dasharray="1.6 3"/>
+        <!-- tear-off strips -->
+        <rect x="140" y="352" width="240" height="32" fill="#D32F45"/>
+        <rect x="140" y="384" width="240" height="32" fill="#F2BE3A"/>
+        <rect x="140" y="416" width="240" height="40" fill="#2F9A5C"/>
+        <rect x="140" y="352" width="240" height="104" fill="url(#stripShade)"/>
+        <rect x="140" y="352" width="240" height="104" filter="url(#grain)" opacity="0.8"/>
+        <!-- strip icons: person, bot, check -->
+        <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="334" cy="364" r="4.5"/><path d="M326 377c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
+          <path d="M325 432l6 6 11-12"/>
+        </g>
+        <g fill="none" stroke="#1D2530" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="326" y="395" width="16" height="12" rx="3"/><path d="M334 391v4M331 400v1M337 400v1"/>
+        </g>
+        <!-- label bars on the strips -->
+        <rect x="170" y="364" width="84" height="8" rx="4" fill="#fff" fill-opacity="0.9"/>
+        <rect x="170" y="396" width="70" height="8" rx="4" fill="#1D2530" fill-opacity="0.8"/>
+        <rect x="170" y="428" width="66" height="8" rx="4" fill="#fff" fill-opacity="0.9"/>
+      </g>
+      <!-- perforations punched through to the background -->
+      <g fill="#182231">
+        <g id="perf">
+          <circle cx="152" cy="0" r="2.8"/><circle cx="165" cy="0" r="2.8"/><circle cx="178" cy="0" r="2.8"/><circle cx="191" cy="0" r="2.8"/>
+          <circle cx="204" cy="0" r="2.8"/><circle cx="217" cy="0" r="2.8"/><circle cx="230" cy="0" r="2.8"/><circle cx="243" cy="0" r="2.8"/>
+          <circle cx="256" cy="0" r="2.8"/><circle cx="269" cy="0" r="2.8"/><circle cx="282" cy="0" r="2.8"/><circle cx="295" cy="0" r="2.8"/>
+          <circle cx="308" cy="0" r="2.8"/><circle cx="321" cy="0" r="2.8"/><circle cx="334" cy="0" r="2.8"/><circle cx="347" cy="0" r="2.8"/>
+          <circle cx="360" cy="0" r="2.8"/>
+        </g>
+      </g>
+    </g>
+    <use href="#perf" transform="translate(0 352)" fill="#1B2533"/>
+    <use href="#perf" transform="translate(0 384)" fill="#1B2533"/>
+    <use href="#perf" transform="translate(0 416)" fill="#1B2533"/>
+
+    <!-- kraft washer and metal eyelet, the hole shows the background -->
+    <circle cx="256" cy="196" r="30" fill="url(#washer)"/>
+    <circle cx="256" cy="196" r="30" fill="none" stroke="#5A4520" stroke-opacity="0.2" stroke-width="1.5"/>
+    <circle cx="256" cy="196" r="15" fill="url(#metal)"/>
+    <circle cx="256" cy="196" r="15" fill="none" stroke="#3E4650" stroke-opacity="0.45" stroke-width="1"/>
+    <circle cx="256" cy="196" r="8" fill="#141C27"/>
+    <circle cx="256" cy="197" r="8" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="2"/>
+
+    <!-- cord: from above, a knot, then the front strand into the eyelet -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M256 -40V108M256 114C241 140 242 172 256 190" stroke="#5F5646" stroke-opacity="0.55" stroke-width="8"/>
+      <path d="M256 -40V108M256 114C241 140 242 172 256 190" stroke="#E4DBCB" stroke-width="5.5"/>
+      <path d="M256 -40V108M256 114C241 140 242 172 256 190" stroke="#8E826C" stroke-opacity="0.5" stroke-width="5.5" stroke-dasharray="1.6 4"/>
+    </g>
+    <ellipse cx="256" cy="111" rx="8.5" ry="7" fill="#E4DBCB" stroke="#5F5646" stroke-opacity="0.55" stroke-width="1.5"/>
+  </g>
+</svg>
