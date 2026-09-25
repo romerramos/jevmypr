@@ -41,7 +41,7 @@
     <header class="border-b border-base-300">
       <nav class="navbar mx-auto max-w-6xl px-4 sm:px-6">
         <div class="navbar-start">
-          <%= link_to root_path, class: "flex items-center gap-2 font-display text-lg font-extrabold", "aria-label": "Jev my PR home" do %>
+          <%= link_to repositories_path, class: "flex items-center gap-2 font-display text-lg font-extrabold", "aria-label": "Jev my PR home" do %>
             <%= image_tag "/icon.svg", alt: "", class: "size-7", "aria-hidden": true %>
             Jev my PR
           <% end %>
@@ -52,6 +52,10 @@
             <%= lucide_icon "sun-medium", class: "size-4 hidden in-data-[theme=triage-night]:block", "aria-hidden": true %>
           </button>
           <% if authenticated? %>
+            <%= link_to assessments_path, class: "btn btn-ghost btn-sm gap-1.5" do %>
+              <%= lucide_icon "tags", class: "size-4", "aria-hidden": true %>
+              <span class="max-sm:sr-only">Verdicts</span>
+            <% end %>
             <button type="button" class="btn btn-ghost btn-sm gap-2 px-1.5" popovertarget="account-menu" style="anchor-name: --account-menu" aria-label="Account menu">
               <span class="avatar">
                 <span class="block size-7 overflow-hidden rounded-full bg-base-300">

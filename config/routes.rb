@@ -3,9 +3,18 @@ Rails.application.routes.draw do
   get "auth/github/callback", to: "sessions#create", as: :github_callback
   get "auth/failure", to: "sessions#failure"
 
+  root to: redirect("/repositories", status: 302)
+
   resources :repositories, only: :index
-  resources :pull_requests, only: :index
-  resources :assessments, only: %i[ create show ]
+
+  # GitHub repositories are addressed by owner/name, e.g. /repositories/rails/rails/pull_requests
+  scope "repositories/:owner/:repo", as: :repository, constraints: { owner: %r{[^/]+}, repo: %r{[^/]+} } do
+    resources :pull_requests, only: :index, param: :number do
+      resources :assessments, only: :create
+    end
+  end
+
+  resources :assessments, only: %i[ index show ]
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
@@ -15,7 +24,4 @@ Rails.application.routes.draw do
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
-
-  # Defines the root path route ("/")
-  root "dashboard#show"
 end

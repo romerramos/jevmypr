@@ -8,20 +8,23 @@ class TriageFlowTest < ApplicationSystemTestCase
     stub_jev(choice: "llm_enough", probabilities: { "yes" => 0.2, "llm_enough" => 0.7, "no" => 0.1 }, confidence: 0.64)
 
     sign_in_with_github users(:one)
-    assert_selector "h1", text: "Which PR should Jev triage?"
-    assert_selector "#repositories a[data-repo]", count: 2
+    assert_current_path repositories_path
+    assert_selector "#repositories a[data-picker-item]", count: 2
 
     fill_in "Search repositories", with: "web"
-    assert_selector "#repositories a[data-repo]", count: 1
+    assert_selector "#repositories a[data-picker-item]", count: 1
 
     click_on "acme/web"
-    assert_selector "#pull_requests button", text: "Fix login redirect"
-    assert_selector "a[data-repo='acme/web'][aria-current]"
-    assert_current_path root_path(repo: "acme/web")
+    assert_current_path "/repositories/acme/web/pull_requests"
+    assert_selector "#pull_request_results button", text: "Fix login redirect"
+    assert_selector "#repository_sidebar a[aria-current=page]", text: "acme/web"
+    assert_field "Search repositories", with: "web" # the sidebar is kept across the visit
 
     fill_in "Search pull requests", with: "bump"
     assert_no_selector "#pull_request_results button", text: "Fix login redirect"
+    assert_current_path "/repositories/acme/web/pull_requests?q=bump"
     fill_in "Search pull requests", with: ""
+    assert_selector "#pull_request_results button", text: "Fix login redirect"
     click_on "Fix login redirect"
 
     assert_selector "h1", text: "An LLM review is enough."
@@ -29,19 +32,17 @@ class TriageFlowTest < ApplicationSystemTestCase
     assert_text "70%"
 
     find("body").send_keys(:escape)
-    assert_selector "h1", text: "Which PR should Jev triage?"
-    assert_current_path root_path(repo: "acme/web")
-    assert_selector "#pull_requests button", text: /Tagged llm review/
+    assert_current_path "/repositories/acme/web/pull_requests"
+    assert_selector "#pull_request_results button", text: /Tagged llm review/
   end
 
   test "slash focuses the repository search" do
     stub_github_repositories("acme/web")
     sign_in_with_github users(:one)
-    assert_selector "#repositories a[data-repo]"
+    assert_selector "#repositories a[data-picker-item]"
 
     find("body").send_keys("/")
 
-    assert_equal "q", page.evaluate_script("document.activeElement.name")
-    assert page.evaluate_script("document.activeElement.closest('form').action").end_with?(repositories_path)
+    assert_equal "Search repositories", page.evaluate_script("document.activeElement.getAttribute('aria-label')")
   end
 end

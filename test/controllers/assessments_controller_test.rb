@@ -10,7 +10,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     stub_jev(choice: "yes")
 
     assert_difference -> { users(:one).pr_assessments.count }, 1 do
-      post assessments_path, params: { repo: "acme/web", number: 7 }
+      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
     end
 
     assessment = PrAssessment.last
@@ -31,20 +31,40 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     stub_request(:post, Jev::Client::URL).to_return(json_response({ error: "bad key" }, status: 401))
 
     assert_no_difference -> { PrAssessment.count } do
-      post assessments_path, params: { repo: "acme/web", number: 7 }
+      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
     end
 
-    assert_redirected_to root_path(repo: "acme/web")
+    assert_redirected_to repository_pull_requests_path(owner: "acme", repo: "web")
     assert_match "Jev rejected the API key", flash[:alert]
   end
 
   test "a missing pull request returns to the picker" do
     stub_request(:get, "#{ApiStubs::GITHUB}/repos/acme/web/pulls/99").to_return(json_response({}, status: 404))
 
-    post assessments_path, params: { repo: "acme/web", number: 99 }
+    post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 99)
 
-    assert_redirected_to root_path(repo: "acme/web")
+    assert_redirected_to repository_pull_requests_path(owner: "acme", repo: "web")
     assert_match "couldn't find", flash[:alert]
+  end
+
+  test "index lists the user's verdicts, newest first" do
+    user = users(:one)
+    user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 1, pr_title: "Older", pr_url: "https://github.com/acme/web/pull/1", choice: "no", created_at: 2.days.ago)
+    user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 2, pr_title: "Newer", pr_url: "https://github.com/acme/web/pull/2", choice: "yes")
+    users(:two).pr_assessments.create!(repo_full_name: "other/repo", pr_number: 1, pr_title: "Not mine", pr_url: "https://github.com/other/repo/pull/1", choice: "no")
+
+    get assessments_path
+
+    assert_select "h1", "Your verdicts"
+    assert_equal [ "Newer", "Older" ], css_select(".list-row .font-medium").map(&:text)
+  end
+
+  test "verdict page links back to the repository's pull requests" do
+    assessment = users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 1, pr_title: "x", pr_url: "https://github.com/acme/web/pull/1", choice: "no")
+
+    get assessment_path(assessment)
+
+    assert_select "a[href=?]", "/repositories/acme/web/pull_requests", text: /Pull requests in acme\/web/
   end
 
   test "users can only see their own assessments" do

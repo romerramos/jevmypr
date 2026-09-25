@@ -1,25 +1,26 @@
-<%= turbo_frame_tag "pull_requests", class: "flex flex-1 flex-col" do %>
+<% content_for :title, "Pull requests in #{@repo}" %>
+
+<%= render layout: "shared/picker", locals: { page: "pulls", repositories: nil, query: nil } do %>
   <div class="z-10 border-b border-base-300 bg-base-200 max-md:sticky max-md:top-0">
-    <div class="flex items-center gap-1 px-2 pt-2 md:hidden">
-      <button type="button" class="btn btn-ghost btn-sm gap-1.5" data-action="picker#showRepositories">
+    <div class="flex items-center gap-1 px-2 pt-2">
+      <%= link_to repositories_path, class: "btn btn-ghost btn-sm gap-1.5 md:hidden" do %>
         <%= lucide_icon "arrow-left", class: "size-4", "aria-hidden": true %>
         Repositories
-      </button>
-      <span class="min-w-0 truncate text-sm font-semibold"><%= @repo %></span>
-    </div>
-
-    <%= form_with url: pull_requests_path, method: :get, class: "flex items-center gap-3 p-3",
-          data: { turbo_frame: "pull_request_results", controller: "debounce-search", action: "input->debounce-search#submit" } do |form| %>
-      <%= form.hidden_field :repo, value: @repo %>
-      <label class="input w-full">
-        <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
-        <%= form.search_field :q, value: @query, placeholder: "Search #{@repo} by title, #number or author",
-              autocomplete: "off", class: "grow", "aria-label": "Search pull requests" %>
-      </label>
+      <% end %>
+      <h2 class="min-w-0 flex-1 truncate px-1 text-sm font-semibold md:px-2"><%= @repo %></h2>
       <%= link_to "https://github.com/#{@repo}/pulls", target: "_blank", rel: "noopener", class: "btn btn-ghost btn-square btn-sm shrink-0",
-            "aria-label": "Open #{@repo} pull requests on GitHub", data: { turbo_frame: "_top" } do %>
+            "aria-label": "Open #{@repo} pull requests on GitHub" do %>
         <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
       <% end %>
+    </div>
+
+    <%= form_with url: pull_requests_path_for(@repo), method: :get, class: "p-3 pt-2",
+          data: { turbo_frame: "pull_request_results", turbo_action: "replace", controller: "debounce-search", action: "input->debounce-search#submit" } do |form| %>
+      <label class="input w-full">
+        <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
+        <%= form.search_field :q, value: @query, placeholder: "Search by title, #number or author",
+              autocomplete: "off", class: "grow", "aria-label": "Search pull requests" %>
+      </label>
     <% end %>
   </div>
 
@@ -34,7 +35,7 @@
         <% @pull_requests.each do |pr| %>
           <% previous = @previous_verdicts[pr.number] %>
           <li>
-            <%= button_to assessments_path, params: { repo: @repo, number: pr.number },
+            <%= button_to assessments_path_for(@repo, pr.number),
                   form: { class: "group", data: { turbo_frame: "_top" } },
                   class: "flex w-full cursor-pointer items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors duration-150 hover:bg-base-200 focus-visible:bg-base-200",
                   data: { picker_item: true } do %>

@@ -23,7 +23,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     get new_session_path
 
-    assert_redirected_to root_path
+    assert_redirected_to repositories_path
   end
 
   test "signing in with GitHub creates the user and stores the encrypted token" do

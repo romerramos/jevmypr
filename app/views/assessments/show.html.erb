@@ -1,6 +1,6 @@
 <% verdict = @assessment.verdict %>
 <% content_for :title, "#{verdict[:label]}: #{@assessment.repo_full_name} ##{@assessment.pr_number}" %>
-<% back_url = root_path(repo: @assessment.repo_full_name) %>
+<% back_url = pull_requests_path_for(@assessment.repo_full_name) %>
 <% file_limit = 40 %>
 
 <div data-controller="hotkey" data-hotkey-key-value="Escape" data-hotkey-url-value="<%= back_url %>" data-action="keydown@window->hotkey#visit">

@@ -1,12 +1,12 @@
 class RepositoriesController < ApplicationController
-  include GithubFrameErrors
+  include GithubErrors
 
   def index
     @query = params[:q].to_s.strip
-    @selected = params[:repo]
     @repositories = github.repositories(query: @query)
+    @recent_assessments = Current.user.pr_assessments.recent.limit(5)
   end
 
   private
-    def frame_id = "repositories"
+    def default_frame = "repositories"
 end

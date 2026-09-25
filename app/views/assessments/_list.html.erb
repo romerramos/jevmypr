@@ -1,0 +1,17 @@
+<ul class="list mt-2">
+  <% assessments.each do |assessment| %>
+    <li>
+      <%= link_to assessment_path(assessment), class: "list-row items-center rounded-field px-2 hover:bg-base-200 focus-visible:bg-base-200", data: { turbo_frame: "_top" } do %>
+        <span class="status status-md <%= assessment.verdict[:status_class] %>" aria-hidden="true"></span>
+        <span class="min-w-0">
+          <span class="block truncate font-medium"><%= assessment.pr_title %></span>
+          <span class="block truncate text-sm text-base-content/60"><%= assessment.repo_full_name %> #<%= assessment.pr_number %></span>
+        </span>
+        <span class="text-right text-sm text-base-content/70">
+          <%= assessment.verdict[:label] %>
+          <span class="block text-xs text-base-content/50"><%= time_ago_in_words(assessment.created_at) %> ago</span>
+        </span>
+      <% end %>
+    </li>
+  <% end %>
+</ul>
