@@ -64,3 +64,6 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+
+# Lucide icons [https://github.com/heyvito/lucide-rails]
+gem "lucide-rails"
