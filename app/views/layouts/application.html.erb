@@ -41,7 +41,34 @@
             <%= lucide_icon "moon", class: "size-4 in-data-[theme=triage-night]:hidden", "aria-hidden": true %>
             <%= lucide_icon "sun-medium", class: "size-4 hidden in-data-[theme=triage-night]:block", "aria-hidden": true %>
           </button>
-          <%= yield :navbar_end %>
+          <% if authenticated? %>
+            <button type="button" class="btn btn-ghost btn-sm gap-2 px-1.5" popovertarget="account-menu" style="anchor-name: --account-menu" aria-label="Account menu">
+              <span class="avatar">
+                <span class="block size-7 overflow-hidden rounded-full bg-base-300">
+                  <% if Current.user.avatar_url.present? %>
+                    <%= image_tag Current.user.avatar_url, alt: "" %>
+                  <% end %>
+                </span>
+              </span>
+              <span class="hidden sm:inline"><%= Current.user.login %></span>
+              <%= lucide_icon "chevron-down", class: "size-3.5 opacity-60", "aria-hidden": true %>
+            </button>
+            <ul class="dropdown dropdown-end menu mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg" popover id="account-menu" style="position-anchor: --account-menu">
+              <li class="menu-title">Signed in as <%= Current.user.login %></li>
+              <li>
+                <%= link_to "https://github.com/#{Current.user.login}", target: "_blank", rel: "noopener" do %>
+                  <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
+                  GitHub profile
+                <% end %>
+              </li>
+              <li>
+                <%= button_to session_path, method: :delete do %>
+                  <%= lucide_icon "log-out", class: "size-4", "aria-hidden": true %>
+                  Sign out
+                <% end %>
+              </li>
+            </ul>
+          <% end %>
         </div>
       </nav>
     </header>

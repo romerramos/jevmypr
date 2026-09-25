@@ -60,6 +60,7 @@ group :development do
 end
 
 group :test do
+  gem "webmock"
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
   gem "selenium-webdriver"
@@ -67,3 +68,11 @@ end
 
 # Lucide icons [https://github.com/heyvito/lucide-rails]
 gem "lucide-rails"
+
+# Sign in with GitHub [https://github.com/omniauth/omniauth-github]
+gem "omniauth-github", "~> 2.0"
+gem "omniauth-rails_csrf_protection"
+
+# HTTP client for the GitHub and Jev adapters
+gem "faraday"
+gem "faraday-retry"
