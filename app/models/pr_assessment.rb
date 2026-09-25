@@ -16,7 +16,7 @@ class PrAssessment < ApplicationRecord
 
   validates :repo_full_name, :pr_number, :pr_title, :pr_url, presence: true
   validates :choice, inclusion: { in: VERDICTS.keys }
-  validates :pr_url, format: { with: %r{\Ahttps://github\.com/}, message: "must be a github.com URL" }
+  validates :pr_url, format: { with: %r{\Ahttps://github\.com/[\w.-]+/[\w.-]+/pull/\d+\z}, message: "must be a github.com pull request URL" }
 
   scope :recent, -> { order(created_at: :desc) }
 
