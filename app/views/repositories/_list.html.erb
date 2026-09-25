@@ -16,7 +16,7 @@
                 <span class="text-base-content/60"><%= repo.owner %>/</span><%= repo.name %>
               </span>
               <% if repo.pushed_at %>
-                <span class="block text-xs font-normal text-base-content/50">pushed <%= time_ago_in_words(repo.pushed_at) %> ago</span>
+                <span class="block text-xs font-normal text-base-content/50">pushed <%= time_tag repo.pushed_at, short_time_ago(repo.pushed_at) %></span>
               <% end %>
             </span>
             <% if repo.private %>

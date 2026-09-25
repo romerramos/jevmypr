@@ -1,23 +1,41 @@
 <% content_for :title, "Pull requests in #{@repo}" %>
 
+<% owner, name = @repo.split("/", 2) %>
+<% github_pulls_url = "https://github.com/#{@repo}/pulls" %>
+
+<% content_for :picker_phone_header do %>
+  <header class="md:hidden">
+    <%= link_to repositories_path, class: "btn btn-ghost btn-sm -ml-3 gap-1.5 font-normal text-base-content/70" do %>
+      <%= lucide_icon "arrow-left", class: "size-4", "aria-hidden": true %>
+      All repositories
+    <% end %>
+    <div class="mt-2 flex items-end gap-3">
+      <h1 class="min-w-0 flex-1 leading-tight">
+        <span class="block truncate text-sm text-base-content/60"><%= owner %></span>
+        <span class="block truncate font-display text-3xl font-extrabold"><%= name %></span>
+      </h1>
+      <%= link_to github_pulls_url, target: "_blank", rel: "noopener", class: "btn btn-ghost btn-circle shrink-0",
+            "aria-label": "Open #{@repo} pull requests on GitHub" do %>
+        <%= lucide_icon "external-link", class: "size-5", "aria-hidden": true %>
+      <% end %>
+    </div>
+  </header>
+<% end %>
+
 <%= render layout: "shared/picker", locals: { page: "pulls", repositories: nil, query: nil } do %>
   <div class="z-10 border-b border-base-300 bg-base-200 max-md:sticky max-md:top-0">
-    <% owner, name = @repo.split("/", 2) %>
-    <div class="flex items-center gap-2 px-2 pt-2 md:px-3 md:pt-3">
-      <%= link_to repositories_path, class: "btn btn-ghost btn-circle shrink-0 md:hidden", "aria-label": "All repositories" do %>
-        <%= lucide_icon "arrow-left", class: "size-5", "aria-hidden": true %>
-      <% end %>
+    <div class="flex items-center gap-2 px-3 pt-3 max-md:hidden">
       <h2 class="min-w-0 flex-1 leading-tight">
         <span class="block truncate text-xs text-base-content/60"><%= owner %></span>
         <span class="block truncate font-semibold"><%= name %></span>
       </h2>
-      <%= link_to "https://github.com/#{@repo}/pulls", target: "_blank", rel: "noopener", class: "btn btn-ghost btn-circle shrink-0",
+      <%= link_to github_pulls_url, target: "_blank", rel: "noopener", class: "btn btn-ghost btn-circle shrink-0",
             "aria-label": "Open #{@repo} pull requests on GitHub", title: "Open on GitHub" do %>
         <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
       <% end %>
     </div>
 
-    <%= form_with url: pull_requests_path_for(@repo), method: :get, class: "p-3 pt-2",
+    <%= form_with url: pull_requests_path_for(@repo), method: :get, class: "p-3 md:pt-2",
           data: { turbo_frame: "pull_request_results", turbo_action: "replace", controller: "debounce-search", action: "input->debounce-search#submit turbo:submit-start@document->debounce-search#cancel" } do |form| %>
       <label class="input w-full">
         <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
@@ -52,7 +70,7 @@
                   <span class="block truncate font-medium"><%= pr.title %></span>
                   <span class="flex flex-wrap items-center gap-x-3 text-sm text-base-content/60">
                     <span class="tabular-nums">#<%= pr.number %></span>
-                    <span><%= pr.author_login || "ghost" %>, updated <%= time_ago_in_words(pr.updated_at) %> ago</span>
+                    <span><%= pr.author_login || "ghost" %>, <%= time_tag pr.updated_at, short_time_ago(pr.updated_at), title: "Updated #{l(pr.updated_at, format: :long)}" %></span>
                     <% if pr.draft %><span class="badge badge-ghost badge-sm">Draft</span><% end %>
                     <% if previous %>
                       <span class="inline-flex items-center gap-1.5">

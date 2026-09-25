@@ -10,7 +10,11 @@
     <p class="mt-2 text-base-content/70">Choose a repository, then a pull request. Jev reads the diff and tags it.</p>
   </header>
 
-  <div class="mt-8 grid grid-cols-[minmax(0,1fr)] overflow-clip rounded-box border border-base-300 max-md:group-data-[page=pulls]/picker:mt-0 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+  <%# Page header for phones, outside the list (navigation and title). %>
+  <%= yield :picker_phone_header %>
+
+  <%# A bordered card on wide screens; an edge-to-edge list on phones. %>
+  <div class="mt-8 grid grid-cols-[minmax(0,1fr)] overflow-clip border-base-300 max-md:-mx-4 max-md:border-y max-md:group-data-[page=pulls]/picker:mt-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:rounded-box md:border">
     <aside id="repository_sidebar" data-turbo-permanent data-picker-pane data-loading-label="Loading pull requests…"
            class="flex min-h-80 flex-col border-base-300 md:border-r max-md:group-data-[page=pulls]/picker:hidden">
       <%= form_with url: repositories_path, method: :get, class: "z-10 border-b border-base-300 bg-base-200 p-3 max-md:sticky max-md:top-0",

@@ -14,7 +14,8 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", "/repositories/acme/web/pull_requests/9/assessments"
     assert_select "button", text: /Fix login redirect/
     assert_select ".badge", "Draft"
-    assert_select "a[href=?][aria-label='All repositories']", repositories_path
+    assert_select "header a[href=?]", repositories_path, text: /All repositories/
+    assert_select "header h1", text: /acme\s*web/
     assert_select "h2", text: /acme\s*web/
   end
 
