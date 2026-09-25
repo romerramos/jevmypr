@@ -2,6 +2,10 @@ Rails.application.routes.draw do
   resource :session, only: %i[ new destroy ]
   get "auth/github/callback", to: "sessions#create", as: :github_callback
   get "auth/failure", to: "sessions#failure"
+
+  resources :repositories, only: :index
+  resources :pull_requests, only: :index
+  resources :assessments, only: %i[ create show ]
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

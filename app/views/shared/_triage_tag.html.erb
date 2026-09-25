@@ -1,11 +1,8 @@
 <%# Triage tag. Pass verdict: "yes" / "llm_enough" / "no" to tear off the strips below it; nil leaves a blank tag. %>
 <% verdict = local_assigns[:verdict] %>
 <% fields = local_assigns.fetch(:fields, {}) %>
-<% strips = [
-     { key: "yes", label: "Human review", tone: "red", icon: "user-round-check" },
-     { key: "llm_enough", label: "LLM review", tone: "yellow", icon: "bot" },
-     { key: "no", label: "No review", tone: "green", icon: "check" }
-   ] %>
+<% strip_colors = { "yes" => "red", "llm_enough" => "yellow", "no" => "green" } %>
+<% strips = PrAssessment::VERDICTS.map { |key, info| { key: key, label: info[:label], tone: strip_colors.fetch(key), icon: info[:icon] } } %>
 <% kept = verdict ? strips.index { |s| s[:key] == verdict } : strips.size - 1 %>
 
 <figure class="triage-tag" style="--tag-tilt: <%= local_assigns.fetch(:tilt, "-3deg") %>" aria-label="<%= verdict ? "Triage tag: #{strips[kept][:label]}" : "Blank triage tag" %>">

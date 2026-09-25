@@ -1,0 +1,11 @@
+<%= turbo_frame_tag frame do %>
+  <div class="p-4">
+    <div role="alert" class="alert alert-error alert-soft">
+      <%= lucide_icon "circle-alert", class: "size-5", "aria-hidden": true %>
+      <span><%= message %></span>
+      <% if sign_in %>
+        <%= link_to "Sign in again", new_session_path, class: "btn btn-sm", data: { turbo_frame: "_top" } %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

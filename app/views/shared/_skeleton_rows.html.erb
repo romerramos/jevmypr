@@ -1,0 +1,11 @@
+<div class="flex flex-col gap-4 p-4" aria-busy="true" aria-label="Loading">
+  <% count.times do |i| %>
+    <div class="flex items-center gap-3">
+      <div class="skeleton size-8 shrink-0 rounded-full"></div>
+      <div class="flex flex-1 flex-col gap-2">
+        <div class="skeleton h-3.5" style="width: <%= [ 72, 55, 64, 48, 60, 68 ][i % 6] %>%"></div>
+        <div class="skeleton h-3 w-1/4"></div>
+      </div>
+    </div>
+  <% end %>
+</div>

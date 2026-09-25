@@ -1,0 +1,30 @@
+<%= turbo_frame_tag "repositories", class: "block max-h-[32rem] flex-1 overflow-x-hidden overflow-y-auto" do %>
+  <% if @repositories.empty? %>
+    <p class="p-6 text-center text-base-content/60">
+      <%= @query.present? ? "No repositories match “#{@query}”." : "You don't have any repositories on GitHub yet." %>
+    </p>
+  <% else %>
+    <ul class="menu w-full gap-0.5 p-2" aria-label="Repositories">
+      <% @repositories.each do |repo| %>
+        <li>
+          <%= link_to pull_requests_path(repo: repo.full_name),
+                class: "flex items-center gap-3 rounded-field py-2 aria-[current]:bg-base-300 aria-[current]:font-semibold",
+                "aria-current": (true if repo.full_name == @selected),
+                data: { turbo_frame: "pull_requests", repo: repo.full_name, picker_item: true, action: "click->picker#selectRepository" } do %>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate">
+                <span class="text-base-content/60"><%= repo.owner %>/</span><%= repo.name %>
+              </span>
+              <% if repo.pushed_at %>
+                <span class="block text-xs font-normal text-base-content/50">pushed <%= time_ago_in_words(repo.pushed_at) %> ago</span>
+              <% end %>
+            </span>
+            <% if repo.private %>
+              <%= lucide_icon "lock", class: "size-3.5 shrink-0 opacity-50", "aria-label": "Private" %>
+            <% end %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+<% end %>

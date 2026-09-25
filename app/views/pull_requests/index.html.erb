@@ -1,0 +1,70 @@
+<%= turbo_frame_tag "pull_requests", class: "flex flex-1 flex-col" do %>
+  <%= form_with url: pull_requests_path, method: :get, class: "flex items-center gap-3 border-b border-base-300 bg-base-200/60 p-3",
+        data: { turbo_frame: "pull_request_results", controller: "debounce-search", action: "input->debounce-search#submit" } do |form| %>
+    <%= form.hidden_field :repo, value: @repo %>
+    <label class="input w-full">
+      <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
+      <%= form.search_field :q, value: @query, placeholder: "Search #{@repo} by title, #number or author",
+            autocomplete: "off", class: "grow", "aria-label": "Search pull requests" %>
+    </label>
+    <%= link_to "https://github.com/#{@repo}/pulls", target: "_blank", rel: "noopener", class: "btn btn-ghost btn-square btn-sm shrink-0",
+          "aria-label": "Open #{@repo} pull requests on GitHub", data: { turbo_frame: "_top" } do %>
+      <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
+    <% end %>
+  <% end %>
+
+  <%= turbo_frame_tag "pull_request_results", class: "block max-h-[32rem] flex-1 overflow-x-hidden overflow-y-auto" do %>
+    <% if @pull_requests.empty? %>
+      <div class="flex flex-col items-center justify-center gap-3 p-10 text-center text-base-content/60">
+        <%= lucide_icon "git-pull-request", class: "size-8 opacity-40", "aria-hidden": true %>
+        <p><%= @query.present? ? "No open pull requests match “#{@query}”." : "#{@repo} has no open pull requests." %></p>
+      </div>
+    <% else %>
+      <ul class="flex flex-col p-2" aria-label="Open pull requests in <%= @repo %>">
+        <% @pull_requests.each do |pr| %>
+          <% previous = @previous_verdicts[pr.number] %>
+          <li>
+            <%= button_to assessments_path, params: { repo: @repo, number: pr.number },
+                  form: { class: "group", data: { turbo_frame: "_top" } },
+                  class: "flex w-full cursor-pointer items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors duration-150 hover:bg-base-200 focus-visible:bg-base-200",
+                  data: { picker_item: true } do %>
+              <span class="avatar shrink-0">
+                <span class="block size-8 overflow-hidden rounded-full bg-base-300">
+                  <% if pr.author_avatar_url %><%= image_tag pr.author_avatar_url, alt: "", loading: "lazy" %><% end %>
+                </span>
+              </span>
+
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-medium"><%= pr.title %></span>
+                <span class="flex flex-wrap items-center gap-x-3 text-sm text-base-content/60">
+                  <span class="tabular-nums">#<%= pr.number %></span>
+                  <span><%= pr.author_login || "ghost" %>, updated <%= time_ago_in_words(pr.updated_at) %> ago</span>
+                  <% if pr.draft %><span class="badge badge-ghost badge-sm">Draft</span><% end %>
+                  <% if previous %>
+                    <span class="inline-flex items-center gap-1.5">
+                      <span class="status <%= previous.verdict[:status_class] %>" aria-hidden="true"></span>
+                      Tagged <%= previous.verdict[:label].downcase %>
+                    </span>
+                  <% end %>
+                </span>
+              </span>
+
+              <span class="hidden shrink-0 text-sm tabular-nums sm:inline">
+                <span class="text-success">+<%= number_with_delimiter(pr.additions) %></span>
+                <span class="text-error">−<%= number_with_delimiter(pr.deletions) %></span>
+              </span>
+
+              <span class="shrink-0 text-right text-sm font-semibold sm:w-28">
+                <span class="hidden sm:inline group-aria-busy:hidden"><%= previous ? "Ask again" : "Ask Jev" %></span>
+                <%= lucide_icon "chevron-right", class: "size-4 opacity-50 sm:hidden group-aria-busy:hidden", "aria-hidden": true %>
+                <span class="hidden items-center justify-end gap-2 group-aria-busy:inline-flex">
+                  <span class="loading loading-spinner loading-xs" aria-hidden="true"></span> Asking Jev
+                </span>
+              </span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+<% end %>

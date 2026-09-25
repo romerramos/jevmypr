@@ -10,7 +10,29 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_25_214920) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_25_220319) do
+  create_table "pr_assessments", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "repo_full_name", null: false
+    t.integer "pr_number", null: false
+    t.string "pr_title", null: false
+    t.string "pr_url", null: false
+    t.string "pr_author"
+    t.integer "additions", default: 0, null: false
+    t.integer "deletions", default: 0, null: false
+    t.integer "changed_files", default: 0, null: false
+    t.json "files", default: [], null: false
+    t.string "choice", null: false
+    t.json "probabilities", default: {}, null: false
+    t.float "confidence"
+    t.string "jev_model"
+    t.boolean "diff_truncated", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_7bb4f04b72"
+    t.index ["user_id"], name: "index_pr_assessments_on_user_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "ip_address"
@@ -31,5 +53,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_214920) do
     t.index ["github_uid"], name: "index_users_on_github_uid", unique: true
   end
 
+  add_foreign_key "pr_assessments", "users"
   add_foreign_key "sessions", "users"
 end

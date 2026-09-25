@@ -3,6 +3,7 @@ require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
 require_relative "test_helpers/session_test_helper"
+require_relative "test_helpers/api_stubs"
 
 module ActiveSupport
   class TestCase

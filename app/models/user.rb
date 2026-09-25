@@ -1,5 +1,6 @@
 class User < ApplicationRecord
   has_many :sessions, dependent: :destroy
+  has_many :pr_assessments, dependent: :destroy
 
   encrypts :github_token
 
