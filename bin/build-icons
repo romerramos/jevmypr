@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Renders the favicon and app icons in public/ from the SVG sources in design/icons.
+# Needs rsvg-convert and ImageMagick (brew install librsvg imagemagick).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+src=design/icons
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+cp "$src/favicon.svg" public/icon.svg
+
+rsvg-convert -w 16 -h 16 "$src/favicon.svg" -o "$tmp/16.png"
+rsvg-convert -w 32 -h 32 "$src/favicon.svg" -o "$tmp/32.png"
+rsvg-convert -w 48 -h 48 "$src/favicon.svg" -o "$tmp/48.png"
+magick "$tmp/16.png" "$tmp/32.png" "$tmp/48.png" public/favicon.ico
+
+# Full-bleed square: maskable icon and iOS home screen (the OS rounds the corners).
+rsvg-convert -w 512 -h 512 "$src/app-icon.svg" -o public/icon-maskable.png
+rsvg-convert -w 180 -h 180 "$src/app-icon.svg" -o public/apple-touch-icon.png
+
+# Rounded tile for "any" purpose icons.
+rsvg-convert -w 512 -h 512 "$src/app-icon.svg" -o "$tmp/square.png"
+magick -size 512x512 xc:none -fill white -draw "roundrectangle 0,0 511,511 112,112" "$tmp/mask.png"
+magick "$tmp/square.png" "$tmp/mask.png" -alpha off -compose CopyOpacity -composite public/icon.png
+magick public/icon.png -resize 192x192 public/icon-192.png
+
+echo "Icons written to public/"

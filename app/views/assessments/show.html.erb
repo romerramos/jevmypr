@@ -1,5 +1,5 @@
 <% verdict = @assessment.verdict %>
-<% content_for :title, "#{verdict[:label]}: #{@assessment.repo_full_name} ##{@assessment.pr_number} – jev-my-pr" %>
+<% content_for :title, "#{verdict[:label]}: #{@assessment.repo_full_name} ##{@assessment.pr_number}" %>
 <% back_url = root_path(repo: @assessment.repo_full_name) %>
 <% file_limit = 40 %>
 

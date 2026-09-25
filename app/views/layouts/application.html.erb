@@ -2,11 +2,16 @@
 <html lang="en" data-controller="theme">
   <head>
     <meta charset="utf-8">
-    <title><%= content_for(:title) || "jev-my-pr" %></title>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title><%= [ content_for(:title), "Jev my PR" ].compact_blank.join(" – ") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="description" content="Pick a GitHub pull request and Jev tags it: human review, LLM review, or no review.">
+    <meta name="application-name" content="Jev my PR">
+    <meta name="apple-mobile-web-app-title" content="Jev my PR">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="jev-my-pr">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#FBFCFD" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121922" media="(prefers-color-scheme: dark)">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
@@ -19,9 +24,10 @@
 
     <%= yield :head %>
 
-    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/icon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <%= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,7 +41,10 @@
     <header class="border-b border-base-300">
       <nav class="navbar mx-auto max-w-6xl px-4 sm:px-6">
         <div class="navbar-start">
-          <%= link_to "jev-my-pr", root_path, class: "font-display text-lg font-extrabold" %>
+          <%= link_to root_path, class: "flex items-center gap-2 font-display text-lg font-extrabold", "aria-label": "Jev my PR home" do %>
+            <%= image_tag "/icon.svg", alt: "", class: "size-7", "aria-hidden": true %>
+            Jev my PR
+          <% end %>
         </div>
         <div class="navbar-end gap-1">
           <button type="button" class="btn btn-ghost btn-square btn-sm" data-action="theme#toggle" aria-label="Switch colour theme">
