@@ -37,7 +37,7 @@ class MobilePickerTest < ApplicationSystemTestCase
     visit "/repositories/acme/web/pull_requests"
     assert_selector "#pull_request_results button", text: "Fix login redirect"
 
-    click_on "Repositories"
+    click_on "All repositories"
     assert_current_path repositories_path
     assert_selector "#repositories a[data-picker-item]", text: "acme/web"
   end

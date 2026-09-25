@@ -14,7 +14,8 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", "/repositories/acme/web/pull_requests/9/assessments"
     assert_select "button", text: /Fix login redirect/
     assert_select ".badge", "Draft"
-    assert_select "a[href=?]", repositories_path, text: /Repositories/
+    assert_select "a[href=?][aria-label='All repositories']", repositories_path
+    assert_select "h2", text: /acme\s*web/
   end
 
   test "keeps the repository sidebar lazy so the page doesn't wait on the repository list" do
@@ -43,7 +44,7 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
     get "/repositories/acme/acme.github.io/pull_requests"
 
     assert_response :success
-    assert_select "h2", "acme/acme.github.io"
+    assert_select "h2 .font-semibold", "acme.github.io"
   end
 
   test "shows the previous verdict for pull requests already assessed" do

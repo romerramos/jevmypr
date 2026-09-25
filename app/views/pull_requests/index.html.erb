@@ -2,20 +2,23 @@
 
 <%= render layout: "shared/picker", locals: { page: "pulls", repositories: nil, query: nil } do %>
   <div class="z-10 border-b border-base-300 bg-base-200 max-md:sticky max-md:top-0">
-    <div class="flex items-center gap-1 px-2 pt-2">
-      <%= link_to repositories_path, class: "btn btn-ghost btn-sm gap-1.5 md:hidden" do %>
-        <%= lucide_icon "arrow-left", class: "size-4", "aria-hidden": true %>
-        Repositories
+    <% owner, name = @repo.split("/", 2) %>
+    <div class="flex items-center gap-2 px-2 pt-2 md:px-3 md:pt-3">
+      <%= link_to repositories_path, class: "btn btn-ghost btn-circle shrink-0 md:hidden", "aria-label": "All repositories" do %>
+        <%= lucide_icon "arrow-left", class: "size-5", "aria-hidden": true %>
       <% end %>
-      <h2 class="min-w-0 flex-1 truncate px-1 text-sm font-semibold md:px-2"><%= @repo %></h2>
-      <%= link_to "https://github.com/#{@repo}/pulls", target: "_blank", rel: "noopener", class: "btn btn-ghost btn-square btn-sm shrink-0",
-            "aria-label": "Open #{@repo} pull requests on GitHub" do %>
+      <h2 class="min-w-0 flex-1 leading-tight">
+        <span class="block truncate text-xs text-base-content/60"><%= owner %></span>
+        <span class="block truncate font-semibold"><%= name %></span>
+      </h2>
+      <%= link_to "https://github.com/#{@repo}/pulls", target: "_blank", rel: "noopener", class: "btn btn-ghost btn-circle shrink-0",
+            "aria-label": "Open #{@repo} pull requests on GitHub", title: "Open on GitHub" do %>
         <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
       <% end %>
     </div>
 
     <%= form_with url: pull_requests_path_for(@repo), method: :get, class: "p-3 pt-2",
-          data: { turbo_frame: "pull_request_results", turbo_action: "replace", controller: "debounce-search", action: "input->debounce-search#submit" } do |form| %>
+          data: { turbo_frame: "pull_request_results", turbo_action: "replace", controller: "debounce-search", action: "input->debounce-search#submit turbo:submit-start@document->debounce-search#cancel" } do |form| %>
       <label class="input w-full">
         <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
         <%= form.search_field :q, value: @query, placeholder: "Search by title, #number or author",

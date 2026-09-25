@@ -76,7 +76,7 @@
                 <% end %>
               </li>
               <li>
-                <%= button_to session_path, method: :delete do %>
+                <%= link_to session_path, data: { turbo_method: :delete } do %>
                   <%= lucide_icon "log-out", class: "size-4", "aria-hidden": true %>
                   Sign out
                 <% end %>
