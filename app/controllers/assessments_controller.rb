@@ -1,7 +1,7 @@
 class AssessmentsController < ApplicationController
   include Pagy::Method
 
-  rate_limit to: Rails.configuration.x.jev_limits.asks_per_minute_per_user, within: 1.minute, only: :create,
+  rate_limit to: JevAllowance::LIMITS.asks_per_minute_per_user, within: 1.minute, only: :create,
     by: -> { Current.user&.id || request.remote_ip },
     with: -> { redirect_back_or_to repositories_path, alert: "That's a lot of pull requests at once. Wait a minute and try again." }
 

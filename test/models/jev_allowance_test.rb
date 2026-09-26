@@ -39,7 +39,7 @@ class JevAllowanceTest < ActiveSupport::TestCase
   end
 
   test "pauses everyone once the month's estimated spend reaches the budget" do
-    limits = Rails.configuration.x.jev_limits.dup.merge!(monthly_budget_usd: 0.001)
+    limits = JevAllowance::LIMITS.with(monthly_budget_usd: 0.001)
     verdict(users(:two), at: @now.beginning_of_month + 1.hour, number: 1, input_tokens: 20_000, output_tokens: 40) # ~$0.00084
     assert JevAllowance.new(@user, now: @now, limits: limits).allowed?
 
