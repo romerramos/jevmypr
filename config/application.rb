@@ -16,6 +16,9 @@ module JevMyPr
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
+    # The released version (see VERSION and AGENTS.md → Releasing), shown next to the logo.
+    config.x.version = Rails.root.join("VERSION").read.strip
+
     # Active Record encryption keys (for users' GitHub tokens) from credentials, or these env vars.
     %w[primary_key deterministic_key key_derivation_salt].each do |key|
       value = ENV["ACTIVE_RECORD_ENCRYPTION_#{key.upcase}"]

@@ -1,5 +1,10 @@
 module ApplicationHelper
   BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/romerramos".freeze
+  REPOSITORY_URL = "https://github.com/romerramos/jevmypr".freeze
+
+  def app_version = Rails.configuration.x.version
+
+  def app_release_url = "#{REPOSITORY_URL}/releases/tag/v#{app_version}"
 
   def github_sign_in_configured?
     AppSecrets[:github_client_id].present? && AppSecrets[:github_client_secret].present?

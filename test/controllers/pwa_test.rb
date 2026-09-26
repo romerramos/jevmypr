@@ -14,6 +14,13 @@ class PwaTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the navbar shows the released version, linking to its release notes" do
+    get new_session_path
+
+    version = File.read(Rails.root.join("VERSION")).strip
+    assert_select "nav a[href=?]", "https://github.com/romerramos/jevmypr/releases/tag/v#{version}", text: "v#{version}"
+  end
+
   test "manifest describes an installable app with any and maskable icons" do
     get pwa_manifest_path(format: :json)
 

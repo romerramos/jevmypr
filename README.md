@@ -108,6 +108,13 @@ It's a standard Rails 8 app with a `Dockerfile` and a [Kamal](https://kamal-depl
 `config/deploy.yml`. In production, set `SECRET_KEY_BASE` and the variables above (or `RAILS_MASTER_KEY` with your
 own credentials), and use a cache store for rate limiting (the Rails 8 default, Solid Cache, works).
 
+## Releases
+
+Releases follow [semantic versioning](https://semver.org): the current version is in [`VERSION`](VERSION), shown
+next to the logo, and each release is a `vX.Y.Z` tag with notes on the
+[releases page](https://github.com/romerramos/jevmypr/releases). `bin/release` cuts one and `bin/update` moves a
+server checkout to a release; [AGENTS.md](AGENTS.md) describes both, for people and coding agents.
+
 ## Built with
 
 Rails 8, Hotwire (Turbo and Stimulus), SQLite, Tailwind CSS 4 with [daisyUI](https://daisyui.com),
@@ -117,7 +124,8 @@ Rails 8, Hotwire (Turbo and Stimulus), SQLite, Tailwind CSS 4 with [daisyUI](htt
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run the tests, RuboCop and Brakeman before opening a PR.
+Issues and pull requests are welcome. Please run the tests, RuboCop and Brakeman before opening a PR;
+[AGENTS.md](AGENTS.md) has the project conventions.
 To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## Support

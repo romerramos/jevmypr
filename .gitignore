@@ -47,3 +47,6 @@
 # Encrypted credentials stay local: each deployment uses its own (see config/credentials.example.yml)
 /config/credentials.yml.enc
 /config/credentials/*.yml.enc
+
+# Machine-specific notes for agents (server paths, restart command); see AGENTS.md
+/AGENTS.local.md

@@ -40,11 +40,14 @@
     <div class="flex min-h-0 flex-1 flex-col overflow-x-clip">
       <header class="border-b border-base-300">
         <nav class="navbar mx-auto max-w-6xl px-4 sm:px-6">
-          <div class="navbar-start">
-            <%= link_to repositories_path, class: "flex items-center gap-2 font-display text-lg font-extrabold", "aria-label": "Jev my PR home" do %>
+          <div class="navbar-start w-auto min-w-0 flex-1 items-center">
+            <%= link_to repositories_path, class: "flex shrink-0 items-center gap-2 whitespace-nowrap font-display text-lg font-extrabold", "aria-label": "Jev my PR home" do %>
               <%= image_tag "/icon.svg", alt: "", class: "size-7", "aria-hidden": true %>
               Jev my PR
             <% end %>
+            <%= link_to "v#{app_version}", app_release_url, target: "_blank", rel: "noopener",
+                  class: "ml-1.5 translate-y-[0.2rem] whitespace-nowrap text-[0.65rem] font-medium tabular-nums text-base-content/45 transition-colors hover:text-base-content/80",
+                  title: "Release notes for v#{app_version}" %>
           </div>
           <div class="navbar-end gap-1">
             <button type="button" class="btn btn-ghost btn-square btn-sm" data-action="theme#toggle" aria-label="Switch colour theme">

@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+# Updates this checkout to a release and prepares it to run: the way a server moves between releases.
+#
+#   bin/update            # the latest release
+#   bin/update v0.2.0     # a specific release (also how you roll back)
+#
+# Fetches tags, checks out the release (a detached HEAD, which is normal for deploys), installs gems,
+# runs migrations and precompiles assets in the current RAILS_ENV. Restarting the app is up to you
+# (it's specific to each server; see AGENTS.md → Deploying a release).
+require "open3"
+
+Dir.chdir(File.expand_path("..", __dir__))
+
+def sh(*cmd, env: {})
+  puts "→ #{cmd.join(" ")}"
+  system(env, *cmd) || abort("✗ `#{cmd.join(" ")}` failed.")
+end
+
+def capture(*cmd)
+  out, status = Open3.capture2(*cmd)
+  status.success? ? out.strip : abort("✗ `#{cmd.join(" ")}` failed.")
+end
+
+abort("✗ There are uncommitted changes to tracked files; resolve them first:\n#{capture("git", "status", "--short", "--untracked-files=no")}") \
+  unless capture("git", "status", "--porcelain", "--untracked-files=no").empty?
+
+sh("git", "fetch", "--quiet", "--tags", "--force", "origin")
+wanted = ARGV.first.to_s.strip
+tag = if wanted.empty? || wanted == "latest"
+  capture("git", "tag", "--list", "v[0-9]*", "--sort=-v:refname").lines.first&.strip or abort("✗ No releases yet.")
+else
+  wanted.start_with?("v") ? wanted : "v#{wanted}"
+end
+abort("✗ There's no release #{tag}. Available: #{capture("git", "tag", "--list", "v[0-9]*", "--sort=-v:refname").lines.first(5).map(&:strip).join(", ")}") \
+  if capture("git", "tag", "--list", tag).empty?
+
+before = File.read("VERSION").strip
+sh("git", "checkout", "--quiet", tag)
+sh("bundle", "install", "--quiet")
+sh("bin/rails", "db:migrate")
+sh("bin/rails", "assets:precompile") if ENV.fetch("RAILS_ENV", "development") == "production"
+
+puts "✓ Now on #{tag} (was v#{before}) in #{ENV.fetch("RAILS_ENV", "development")}. Restart the app to serve it."

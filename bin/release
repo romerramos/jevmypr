@@ -1,0 +1,103 @@
+#!/usr/bin/env ruby
+# Cuts a release: bumps VERSION, commits, tags vX.Y.Z, pushes both and publishes a GitHub Release.
+# Deciding the bump and writing the notes is up to a person or an agent (see AGENTS.md → Releasing).
+#
+#   bin/release --plan                           # last release, candidate versions, what changed since
+#   bin/release patch|minor|major --notes FILE   # release with that bump and those release notes
+#   bin/release 0.1.0 --notes FILE               # an explicit version (e.g. the first release)
+#
+# Refuses unless you're on an up-to-date, clean main whose latest commit passed CI (--skip-ci to override).
+require "optparse"
+require "open3"
+require "json"
+
+Dir.chdir(File.expand_path("..", __dir__))
+
+def sh(*cmd, allow_failure: false)
+  out, status = Open3.capture2e(*cmd)
+  fail!("`#{cmd.join(" ")}` failed:\n#{out}") unless status.success? || allow_failure
+  status.success? ? out.strip : nil
+end
+
+def fail!(message) = abort("✗ #{message}")
+def say(message) = puts(message)
+
+def bump(version, part)
+  major, minor, patch = version.split(".").map(&:to_i)
+  { "major" => "#{major + 1}.0.0", "minor" => "#{major}.#{minor + 1}.0", "patch" => "#{major}.#{minor}.#{patch + 1}" }.fetch(part)
+end
+
+def newer?(a, b) = (Gem::Version.new(a) <=> Gem::Version.new(b)) == 1
+
+options = { plan: false, notes: nil, skip_ci: false }
+OptionParser.new do |o|
+  o.banner = "Usage: bin/release --plan | bin/release (patch|minor|major|X.Y.Z) --notes FILE [--skip-ci]"
+  o.on("--plan", "Show what would be released") { options[:plan] = true }
+  o.on("--notes FILE", "Release notes (Markdown)") { |f| options[:notes] = f }
+  o.on("--skip-ci", "Don't require a green CI run on the released commit") { options[:skip_ci] = true }
+end.parse!
+
+current = File.read("VERSION").strip
+sh("git", "fetch", "--quiet", "--tags", "origin")
+last_tag = sh("git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", allow_failure: true)
+range = last_tag ? "#{last_tag}..HEAD" : "HEAD"
+
+if options[:plan]
+  say "VERSION:       #{current}"
+  say "Last release:  #{last_tag || "none yet (pass an explicit version, e.g. bin/release 0.1.0)"}"
+  if last_tag
+    say "Candidates:    patch #{bump(current, "patch")}  minor #{bump(current, "minor")}  major #{bump(current, "major")}"
+  end
+  say "\nCommits since #{last_tag || "the beginning"}:"
+  say sh("git", "log", "--reverse", "--format=- %h %s%n%w(0,4,4)%b", range)
+  say "\nSignals (read the diff before deciding):"
+  signals = {
+    "New migrations" => "db/migrate",
+    "Secrets / config template" => "config/credentials.example.yml",
+    "Routes" => "config/routes.rb",
+    "Dependencies" => "Gemfile.lock",
+    "Usage limits" => "app/models/jev_allowance.rb"
+  }
+  signals.each do |label, path|
+    files = sh("git", "diff", "--name-only", last_tag || sh("git", "hash-object", "-t", "tree", "/dev/null"), "HEAD", "--", path)
+    say "  #{label}: #{files.empty? ? "no changes" : files.lines.map(&:strip).join(", ")}"
+  end
+  say "\n" + sh("git", "diff", "--shortstat", last_tag || sh("git", "hash-object", "-t", "tree", "/dev/null"), "HEAD")
+  exit
+end
+
+target = ARGV.shift or fail!("Say which release: patch, minor, major or X.Y.Z (or --plan to look first).")
+version = %w[patch minor major].include?(target) ? bump(current, target) : target.delete_prefix("v")
+fail!("#{version} isn't a X.Y.Z version.") unless version.match?(/\A\d+\.\d+\.\d+\z/)
+fail!("v#{version} isn't newer than the last release (#{last_tag}).") if last_tag && !newer?(version, last_tag.delete_prefix("v"))
+fail!("Tag v#{version} already exists.") if sh("git", "tag", "--list", "v#{version}").length.positive?
+fail!("Write release notes to a file and pass --notes FILE.") unless options[:notes] && File.file?(options[:notes])
+
+branch = sh("git", "branch", "--show-current")
+fail!("Release from main (you're on #{branch.empty? ? "a detached HEAD" : branch}).") unless branch == "main"
+fail!("Commit or stash your changes first:\n#{sh("git", "status", "--short")}") unless sh("git", "status", "--porcelain").empty?
+head = sh("git", "rev-parse", "HEAD")
+fail!("main isn't in sync with origin/main; push or pull first.") unless head == sh("git", "rev-parse", "origin/main")
+fail!("Nothing to release: no commits since #{last_tag}.") if last_tag && sh("git", "rev-list", "--count", range) == "0"
+
+unless options[:skip_ci]
+  runs = JSON.parse(sh("gh", "run", "list", "--commit", head, "--json", "status,conclusion,workflowName"))
+  fail!("No CI run found for #{head[0, 7]} yet. Wait for it or use --skip-ci.") if runs.empty?
+  pending = runs.reject { |r| r["status"] == "completed" }
+  fail!("CI is still running for #{head[0, 7]}. Try again when it's done.") if pending.any?
+  failed = runs.reject { |r| r["conclusion"] == "success" }
+  fail!("CI didn't pass for #{head[0, 7]}: #{failed.map { |r| r["workflowName"] }.join(", ")}.") if failed.any?
+end
+
+tag = "v#{version}"
+if current != version # the first release can already have VERSION set; then the current commit is tagged
+  File.write("VERSION", "#{version}\n")
+  sh("git", "commit", "--quiet", "-m", "Release #{tag}", "--", "VERSION")
+end
+sh("git", "tag", "--annotate", tag, "--file", options[:notes])
+sh("git", "push", "--quiet", "--atomic", "origin", "main", tag)
+url = sh("gh", "release", "create", tag, "--title", tag, "--notes-file", options[:notes], "--verify-tag")
+
+say "✓ Released #{tag} (#{last_tag || "first release"} → #{tag})"
+say "  #{url}"
+say "  Deploy it on the server with: bin/update #{tag}"
