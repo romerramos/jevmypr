@@ -37,7 +37,7 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="flex flex-col">
+  <body class="flex flex-col <%= "app-shell:h-dvh app-shell:overflow-hidden" if content_for?(:app_shell) %>">
     <header class="border-b border-base-300">
       <nav class="navbar mx-auto max-w-6xl px-4 sm:px-6">
         <div class="navbar-start">
@@ -93,7 +93,7 @@
       </div>
     <% end %>
 
-    <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6 md:py-10" data-loading-label="Loading…">
+    <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6 md:py-10 <%= "app-shell:min-h-0 app-shell:py-8" if content_for?(:app_shell) %>" data-loading-label="Loading…">
       <%= yield %>
     </main>
 

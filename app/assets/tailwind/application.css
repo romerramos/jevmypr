@@ -87,6 +87,10 @@
   --noise: 0;
 }
 
+/* Desktop "app shell": the picker fills the window exactly and its lists scroll inside their panes.
+   Only when the window is tall enough; shorter windows keep fixed-height panes and a scrolling page. */
+@custom-variant app-shell (@media (width >= 48rem) and (height >= 36rem));
+
 @theme {
   --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
@@ -119,6 +123,11 @@
   font-family: var(--font-display);
   font-variation-settings: "wdth" 125;
   letter-spacing: -0.01em;
+}
+
+/* The scrolling part of a picker pane: the page scrolls on phones; the pane scrolls on desktop. */
+@utility pane-scroll {
+  @apply min-h-0 flex-1 overflow-x-hidden md:max-h-[32rem] md:overflow-y-auto app-shell:max-h-none;
 }
 
 /* Custom components live in the components layer so Tailwind utilities (md:hidden, …) still win. */

@@ -2,10 +2,12 @@
   Two panes on desktop: the repository sidebar (kept across visits with data-turbo-permanent)
   and the page's own content. On phones each page shows only its own pane.
   Locals: page ("repositories" or "pulls"), title, intro, repositories (nil to lazy-load), query, pinned.
+  On desktop it fills the window (app-shell) and only the lists scroll.
 %>
-<div class="group/picker" data-page="<%= page %>" data-controller="picker"
+<% content_for :app_shell, "true" %>
+<div class="group/picker app-shell:flex app-shell:min-h-0 app-shell:flex-1 app-shell:flex-col" data-page="<%= page %>" data-controller="picker"
      data-action="keydown@window->picker#focusSearch keydown->picker#navigate turbo:load@document->picker#markCurrent turbo:frame-load->picker#markCurrent">
-  <header class="max-md:group-data-[page=pulls]/picker:hidden">
+  <header class="shrink-0 max-md:group-data-[page=pulls]/picker:hidden">
     <h1 class="font-display text-3xl font-extrabold sm:text-4xl"><%= title %></h1>
     <p class="mt-2 text-base-content/70"><%= intro %></p>
   </header>
@@ -14,9 +16,9 @@
   <%= yield :picker_phone_header %>
 
   <%# A bordered card on wide screens; an edge-to-edge list on phones. %>
-  <div class="mt-8 grid grid-cols-[minmax(0,1fr)] overflow-clip border-base-300 max-md:-mx-4 max-md:border-y max-md:group-data-[page=pulls]/picker:mt-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:rounded-box md:border">
+  <div class="mt-8 grid grid-cols-[minmax(0,1fr)] overflow-clip border-base-300 max-md:-mx-4 max-md:border-y max-md:group-data-[page=pulls]/picker:mt-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:rounded-box md:border app-shell:min-h-0 app-shell:flex-1 app-shell:grid-rows-[minmax(0,1fr)] app-shell:mt-6">
     <aside id="repository_sidebar" data-turbo-permanent data-picker-pane data-loading-label="Loading pull requests…"
-           class="flex min-h-80 flex-col border-base-300 md:border-r max-md:group-data-[page=pulls]/picker:hidden">
+           class="flex min-h-80 flex-col border-base-300 md:border-r max-md:group-data-[page=pulls]/picker:hidden app-shell:min-h-0">
       <%= form_with url: repositories_path, method: :get, class: "z-10 border-b border-base-300 bg-base-200 p-3 max-md:sticky max-md:top-0",
             data: { turbo_frame: "repositories", controller: "debounce-search", action: "input->debounce-search#submit turbo:submit-start@document->debounce-search#cancel" } do |form| %>
         <label class="input w-full">
@@ -30,20 +32,20 @@
       <% if repositories %>
         <%= render "repositories/list", repositories: repositories, query: query, pinned: local_assigns[:pinned] %>
       <% else %>
-        <%= turbo_frame_tag "repositories", src: repositories_path, class: "block flex-1 overflow-x-hidden md:max-h-[32rem] md:overflow-y-auto",
+        <%= turbo_frame_tag "repositories", src: repositories_path, class: "flex min-h-0 flex-1 flex-col",
               data: { loading_label: "Loading repositories…" } do %>
-          <%= render "shared/skeleton_rows", count: 6 %>
+          <div class="pane-scroll"><%= render "shared/skeleton_rows", count: 6 %></div>
         <% end %>
       <% end %>
     </aside>
 
-    <section class="flex min-h-80 flex-col max-md:group-data-[page=repositories]/picker:hidden" data-picker-pane
+    <section class="flex min-h-80 flex-col max-md:group-data-[page=repositories]/picker:hidden app-shell:min-h-0 app-shell:overflow-y-auto" data-picker-pane
              data-visit-loading="pane" data-loading-label="Loading…">
       <%= yield %>
     </section>
   </div>
 
-  <p class="mt-3 hidden gap-4 text-sm text-base-content/55 md:flex">
+  <p class="mt-3 hidden shrink-0 gap-4 text-sm text-base-content/55 md:flex">
     <span><kbd class="kbd kbd-xs">/</kbd> search</span>
     <span><kbd class="kbd kbd-xs">↑</kbd> <kbd class="kbd kbd-xs">↓</kbd> move</span>
     <span><kbd class="kbd kbd-xs">Enter</kbd> open or ask Jev</span>
