@@ -1,8 +1,16 @@
 class AssessmentsController < ApplicationController
+  include Pagy::Method
+
   rate_limit to: 20, within: 1.minute, only: :create, with: -> { redirect_back_or_to repositories_path, alert: "That's a lot of PRs at once. Wait a minute and try again." }
 
   def index
-    @assessments = Current.user.pr_assessments.recent.limit(100)
+    @query = params[:q].to_s.strip
+    @verdict = params[:verdict].presence_in(PrAssessment::VERDICTS.keys)
+    @counts = Current.user.pr_assessments.group(:choice).count
+
+    scope = Current.user.pr_assessments.recent.search(@query)
+    scope = scope.where(choice: @verdict) if @verdict
+    @pagy, @assessments = pagy(:offset, scope, limit: 20)
   end
 
   def show

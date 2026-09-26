@@ -1,4 +1,4 @@
-<ul class="list mt-2">
+<ul class="list">
   <% assessments.each do |assessment| %>
     <li>
       <%= link_to assessment_path(assessment), class: "list-row items-center rounded-field px-2 hover:bg-base-200 focus-visible:bg-base-200", data: { turbo_frame: "_top" } do %>
@@ -8,8 +8,9 @@
           <span class="block truncate text-sm text-base-content/60"><%= assessment.repo_full_name %> #<%= assessment.pr_number %></span>
         </span>
         <span class="text-right text-sm text-base-content/70">
-          <%= assessment.verdict[:label] %>
-          <span class="block text-xs text-base-content/50"><%= time_ago_in_words(assessment.created_at) %> ago</span>
+          <span class="max-sm:sr-only"><%= assessment.verdict[:label] %></span>
+          <%= time_tag assessment.created_at, short_time_ago(assessment.created_at),
+                title: l(assessment.created_at, format: :long), class: "block text-xs text-base-content/50" %>
         </span>
       <% end %>
     </li>

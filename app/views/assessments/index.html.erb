@@ -1,13 +1,70 @@
 <% content_for :title, "Your verdicts" %>
+<% total = @counts.values.sum %>
 
 <h1 class="font-display text-3xl font-extrabold sm:text-4xl">Your verdicts</h1>
 
-<% if @assessments.any? %>
-  <p class="mt-2 text-base-content/70">Every pull request you asked Jev about, newest first.</p>
-  <div class="mt-6 max-w-3xl rounded-box border border-base-300 p-2">
-    <%= render "assessments/list", assessments: @assessments %>
-  </div>
-<% else %>
+<% if total.zero? %>
   <p class="mt-2 text-base-content/70">You haven't asked Jev about a pull request yet.</p>
   <%= link_to "Pick a pull request", repositories_path, class: "btn btn-primary mt-6" %>
+<% else %>
+  <p class="mt-2 text-base-content/70">Every pull request you asked Jev about, newest first.</p>
+
+  <%# Search and verdict filter are one form; results reload in the frame below. %>
+  <%= form_with url: assessments_path, method: :get, class: "mt-6 max-w-3xl space-y-3",
+        data: { turbo_frame: "verdicts", controller: "debounce-search",
+                action: "input->debounce-search#submit change->debounce-search#submit turbo:submit-start@document->debounce-search#cancel" } do |form| %>
+    <label class="input w-full">
+      <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
+      <%= form.search_field :q, value: @query, placeholder: "Search by title, repository or #number",
+            autocomplete: "off", class: "grow", "aria-label": "Search verdicts" %>
+    </label>
+
+    <fieldset class="flex flex-wrap gap-2">
+      <legend class="sr-only">Filter by verdict</legend>
+      <% chips = [ [ "", "All", nil, total ] ] + PrAssessment::VERDICTS.map { |key, info| [ key, info[:label], info[:status_class], @counts[key].to_i ] } %>
+      <% chips.each do |value, label, status_class, count| %>
+        <label class="btn btn-sm rounded-full font-normal has-checked:border-base-content has-checked:bg-base-content has-checked:text-base-100 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent">
+          <%= radio_button_tag :verdict, value, (@verdict || "") == value, class: "sr-only" %>
+          <% if status_class %><span class="status <%= status_class %>" aria-hidden="true"></span><% end %>
+          <%= label %>
+          <span class="tabular-nums opacity-60"><%= count %></span>
+        </label>
+      <% end %>
+    </fieldset>
+  <% end %>
+
+  <%= turbo_frame_tag "verdicts", class: "mt-4 block max-w-3xl", data: { loading_label: "Loading verdicts…" } do %>
+    <% if @assessments.any? %>
+      <div class="rounded-box border border-base-300 p-2">
+        <%= render "assessments/list", assessments: @assessments %>
+      </div>
+
+      <% if @pagy.last > 1 %>
+        <nav class="mt-4 flex items-center justify-between gap-3 text-sm" aria-label="Pagination">
+          <p class="tabular-nums text-base-content/60"><%= @pagy.from %>–<%= @pagy.to %> of <%= @pagy.count %></p>
+          <div class="join">
+            <% if @pagy.previous %>
+              <%= link_to @pagy.page_url(:previous), class: "btn btn-sm join-item", rel: "prev" do %>
+                <%= lucide_icon "chevron-left", class: "size-4", "aria-hidden": true %> Newer
+              <% end %>
+            <% else %>
+              <span class="btn btn-sm join-item btn-disabled" aria-disabled="true"><%= lucide_icon "chevron-left", class: "size-4", "aria-hidden": true %> Newer</span>
+            <% end %>
+            <% if @pagy.next %>
+              <%= link_to @pagy.page_url(:next), class: "btn btn-sm join-item", rel: "next" do %>
+                Older <%= lucide_icon "chevron-right", class: "size-4", "aria-hidden": true %>
+              <% end %>
+            <% else %>
+              <span class="btn btn-sm join-item btn-disabled" aria-disabled="true">Older <%= lucide_icon "chevron-right", class: "size-4", "aria-hidden": true %></span>
+            <% end %>
+          </div>
+        </nav>
+      <% end %>
+    <% else %>
+      <div class="rounded-box border border-dashed border-base-300 p-8 text-center text-base-content/60">
+        <p>No verdicts match<%= " “#{@query}”" if @query.present? %><%= " with #{PrAssessment::VERDICTS[@verdict][:label].downcase}" if @verdict %>.</p>
+        <%= link_to "Show all verdicts", assessments_path, class: "link mt-2 inline-block", data: { turbo_frame: "_top" } %>
+      </div>
+    <% end %>
+  <% end %>
 <% end %>

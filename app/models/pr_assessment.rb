@@ -18,7 +18,19 @@ class PrAssessment < ApplicationRecord
   validates :choice, inclusion: { in: VERDICTS.keys }
   validates :pr_url, format: { with: %r{\Ahttps://github\.com/[\w.-]+/[\w.-]+/pull/\d+\z}, message: "must be a github.com pull request URL" }
 
-  scope :recent, -> { order(created_at: :desc) }
+  scope :recent, -> { order(created_at: :desc, id: :desc) }
+
+  # Every term must match: "#42" or "42" a PR number, anything else the title or repository.
+  scope :search, ->(query) {
+    query.to_s.split.reduce(all) do |scope, term|
+      if (number = term.delete_prefix("#")).match?(/\A\d+\z/)
+        scope.where(pr_number: number.to_i)
+      else
+        pattern = "%#{sanitize_sql_like(term)}%"
+        scope.where("pr_title LIKE :pattern ESCAPE '\\' OR repo_full_name LIKE :pattern ESCAPE '\\'", pattern: pattern)
+      end
+    end
+  }
 
   def self.from_result(user:, repo_full_name:, result:)
     pull_request = result.pull_request

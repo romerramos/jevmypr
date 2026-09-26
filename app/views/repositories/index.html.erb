@@ -15,7 +15,7 @@
         <h2 class="font-display font-bold">Your recent verdicts</h2>
         <%= link_to "All verdicts", assessments_path, class: "link link-hover text-sm" %>
       </div>
-      <%= render "assessments/list", assessments: @recent_assessments %>
+      <div class="mt-2"><%= render "assessments/list", assessments: @recent_assessments %></div>
     </div>
   <% end %>
 <% end %>

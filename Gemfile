@@ -76,3 +76,6 @@ gem "omniauth-rails_csrf_protection"
 # HTTP client for the GitHub and Jev adapters
 gem "faraday"
 gem "faraday-retry"
+
+# Pagination [https://ddnexus.github.io/pagy/]
+gem "pagy", "~> 43.6"

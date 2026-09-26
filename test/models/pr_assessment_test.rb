@@ -20,4 +20,16 @@ class PrAssessmentTest < ActiveSupport::TestCase
     assert_not assessment.valid?
     assert assessment.errors.of_kind?(:pr_url, :invalid)
   end
+
+  test "search matches every term against title, repository or PR number" do
+    user = users(:one)
+    a = user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 42, pr_title: "Fix 100% CPU", pr_url: "https://github.com/acme/web/pull/42", choice: "no")
+    user.pr_assessments.create!(repo_full_name: "acme/api", pr_number: 7, pr_title: "Fix login", pr_url: "https://github.com/acme/api/pull/7", choice: "no")
+
+    assert_equal [ a ], user.pr_assessments.search("fix web").to_a
+    assert_equal [ a ], user.pr_assessments.search("#42").to_a
+    assert_equal [ a ], user.pr_assessments.search("100%").to_a
+    assert_empty user.pr_assessments.search("Fix_login").to_a # "_" is literal, not "any character"
+    assert_equal 2, user.pr_assessments.search("").count
+  end
 end

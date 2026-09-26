@@ -51,14 +51,56 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
 
   test "index lists the user's verdicts, newest first" do
     user = users(:one)
-    user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 1, pr_title: "Older", pr_url: "https://github.com/acme/web/pull/1", choice: "no", created_at: 2.days.ago)
-    user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 2, pr_title: "Newer", pr_url: "https://github.com/acme/web/pull/2", choice: "yes")
-    users(:two).pr_assessments.create!(repo_full_name: "other/repo", pr_number: 1, pr_title: "Not mine", pr_url: "https://github.com/other/repo/pull/1", choice: "no")
+    create_assessment(user, title: "Older", created_at: 2.days.ago)
+    create_assessment(user, title: "Newer")
+    create_assessment(users(:two), title: "Not mine")
 
     get assessments_path
 
     assert_select "h1", "Your verdicts"
     assert_equal [ "Newer", "Older" ], css_select(".list-row .font-medium").map(&:text)
+    assert_select "nav[aria-label=Pagination]", 0
+  end
+
+  test "index paginates 20 per page with newer and older links" do
+    25.times { |i| create_assessment(users(:one), title: "PR #{i}", number: i, created_at: i.minutes.ago) }
+
+    get assessments_path
+
+    assert_select ".list-row", 20
+    assert_select "nav[aria-label=Pagination]", text: /1–20 of 25/
+    assert_select "a[rel=next][href=?]", assessments_path(page: 2), text: /Older/
+    assert_select "span.btn-disabled", text: /Newer/
+
+    get assessments_path(page: 2)
+    assert_select ".list-row", 5
+    assert_select "nav[aria-label=Pagination]", text: /21–25 of 25/
+    assert_select "a[rel=prev]", text: /Newer/
+  end
+
+  test "index searches by title, repository or #number and filters by verdict" do
+    user = users(:one)
+    create_assessment(user, title: "Rotate API keys", repo: "acme/vault", number: 12, choice: "yes")
+    create_assessment(user, title: "Fix typo", repo: "acme/docs", number: 7, choice: "no")
+    create_assessment(user, title: "Refactor client", repo: "acme/web", number: 9, choice: "llm_enough")
+
+    get assessments_path(q: "rotate"), headers: { "Turbo-Frame" => "verdicts" }
+    assert_equal [ "Rotate API keys" ], titles
+
+    get assessments_path(q: "#7")
+    assert_equal [ "Fix typo" ], titles
+
+    get assessments_path(q: "acme web")
+    assert_equal [ "Refactor client" ], titles
+
+    get assessments_path(verdict: "yes")
+    assert_equal [ "Rotate API keys" ], titles
+    assert_select "input[type=radio][name=verdict][value=yes][checked]"
+    assert_select "label", text: /Human review\s*1/
+    assert_select "label", text: /All\s*3/
+
+    get assessments_path(q: "nothing like this")
+    assert_select "turbo-frame#verdicts", text: /No verdicts match “nothing like this”/
   end
 
   test "verdict page links back to the repository's pull requests" do
@@ -79,4 +121,12 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  private
+    def create_assessment(user, title:, repo: "acme/web", number: 1, choice: "no", created_at: Time.current)
+      user.pr_assessments.create!(repo_full_name: repo, pr_number: number, pr_title: title,
+                                  pr_url: "https://github.com/#{repo}/pull/#{number}", choice: choice, created_at: created_at)
+    end
+
+    def titles = css_select(".list-row .font-medium").map(&:text)
 end
