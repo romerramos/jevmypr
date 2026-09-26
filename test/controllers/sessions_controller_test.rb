@@ -39,6 +39,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     user = User.find_by!(github_uid: "4242")
     assert_equal "newcomer", user.login
     assert_equal "gho_new_token", user.github_token
+    assert_equal Time.utc(2019, 5, 4, 10), user.github_created_at
     assert_not_includes user.ciphertext_for(:github_token), "gho_new_token"
   end
 
@@ -77,7 +78,8 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
         provider: "github",
         uid: uid,
         info: { nickname: login, name: "Test #{login}", image: "https://avatars.example/#{uid}" },
-        credentials: { token: token }
+        credentials: { token: token },
+        extra: { raw_info: { created_at: "2019-05-04T10:00:00Z" } }
       )
     end
 end

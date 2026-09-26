@@ -26,9 +26,41 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".triage-tag__strip--red.is-kept"
     assert_select ".verdict-badge.verdict-badge--yes", text: /Human review/
     assert_select "a[href=?]", "https://github.com/acme/web/pull/7", text: /Open on GitHub/
-    assert_select "progress", 3
+    assert_select "main progress", 3
     assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/7/assessments", text: /Ask\s*Jev\s*again/
     assert_select ".ask-jev-overlay"
+  end
+
+  test "stores the token counts Jev reports" do
+    stub_github_pull_request
+    stub_jev(choice: "no")
+
+    post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
+
+    assert_equal [ 10, 2 ], PrAssessment.last.values_at(:input_tokens, :output_tokens)
+  end
+
+  test "a used-up weekly quota stops before any GitHub or Jev call" do
+    100.times { |i| create_assessment(users(:one), title: "PR #{i}", number: i, created_at: 1.day.ago) }
+
+    assert_no_difference -> { PrAssessment.count } do
+      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
+    end
+
+    assert_redirected_to repository_pull_requests_path(owner: "acme", repo: "web")
+    assert_match "used all 100 verdicts", flash[:alert]
+    assert_not_requested :any, /api\.github\.com|typesafe/
+  end
+
+  test "asking is limited to a few times a minute per user" do
+    stub_github_pull_request
+    stub_jev(choice: "no")
+
+    5.times { post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7) }
+    assert_difference -> { PrAssessment.count }, 0 do
+      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
+    end
+    assert_match "a lot of pull requests at once", flash[:alert]
   end
 
   test "a Jev failure returns to the picker with the reason" do

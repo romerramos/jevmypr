@@ -11,7 +11,8 @@ class User < ApplicationRecord
         login: auth.info.nickname,
         name: auth.info.name,
         avatar_url: auth.info.image,
-        github_token: auth.credentials.token
+        github_token: auth.credentials.token,
+        github_created_at: auth.dig(:extra, :raw_info, :created_at)
       )
     end
   end

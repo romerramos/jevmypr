@@ -1,7 +1,9 @@
 class AssessmentsController < ApplicationController
   include Pagy::Method
 
-  rate_limit to: 20, within: 1.minute, only: :create, with: -> { redirect_back_or_to repositories_path, alert: "That's a lot of PRs at once. Wait a minute and try again." }
+  rate_limit to: Rails.configuration.x.jev_limits.asks_per_minute_per_user, within: 1.minute, only: :create,
+    by: -> { Current.user&.id || request.remote_ip },
+    with: -> { redirect_back_or_to repositories_path, alert: "That's a lot of pull requests at once. Wait a minute and try again." }
 
   def index
     @query = params[:q].to_s.strip
@@ -19,6 +21,10 @@ class AssessmentsController < ApplicationController
 
   def create
     repo = "#{params[:owner]}/#{params[:repo]}"
+    if (denial = JevAllowance.new(Current.user).denial)
+      return redirect_back_or_to repository_pull_requests_path(owner: params[:owner], repo: params[:repo]), alert: denial.message
+    end
+
     result = PrReviewDecider.new(github: github).decide(repo, params[:pull_request_number])
     assessment = PrAssessment.from_result(user: Current.user, repo_full_name: repo, result: result)
     assessment.save!

@@ -13,7 +13,7 @@ class PrReviewDecider
   MAX_DIFF_BYTES = 100_000
 
   Decision = Data.define(:choice, :probabilities, :confidence, :model)
-  Result = Data.define(:pull_request, :files, :decision, :diff_truncated)
+  Result = Data.define(:pull_request, :files, :decision, :diff_truncated, :usage)
 
   def initialize(github:, jev: Jev::Client.new)
     @github = github
@@ -28,7 +28,8 @@ class PrReviewDecider
 
     response = @jev.ask(state: state_for(full_name, pull_request, files, diff, truncated), questions: { QUESTION_ID => question })
 
-    Result.new(pull_request: pull_request, files: files, decision: decision_from(response), diff_truncated: truncated)
+    Result.new(pull_request: pull_request, files: files, decision: decision_from(response), diff_truncated: truncated,
+               usage: response.usage.to_h)
   end
 
   private

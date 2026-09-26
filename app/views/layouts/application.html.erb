@@ -70,21 +70,30 @@
                 <span class="hidden sm:inline"><%= Current.user.login %></span>
                 <%= lucide_icon "chevron-down", class: "size-3.5 opacity-60", "aria-hidden": true %>
               </button>
-              <ul class="dropdown dropdown-end menu mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg" popover id="account-menu" style="position-anchor: --account-menu">
-                <li class="menu-title">Signed in as <%= Current.user.login %></li>
-                <li>
-                  <%= link_to "https://github.com/#{Current.user.login}", target: "_blank", rel: "noopener" do %>
-                    <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
-                    GitHub profile
-                  <% end %>
-                </li>
-                <li>
-                  <%= link_to session_path, data: { turbo_method: :delete } do %>
-                    <%= lucide_icon "log-out", class: "size-4", "aria-hidden": true %>
-                    Sign out
-                  <% end %>
-                </li>
-              </ul>
+              <div class="dropdown dropdown-end mt-2 w-60 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg" popover id="account-menu" style="position-anchor: --account-menu">
+                <% allowance = JevAllowance.new(Current.user) %>
+                <div class="px-3 pt-2 pb-3">
+                  <p class="text-sm font-semibold text-base-content/50">Signed in as <%= Current.user.login %></p>
+                  <p class="mt-2 text-xs text-base-content/70">
+                    <span class="tabular-nums font-semibold"><%= allowance.weekly_remaining %> of <%= allowance.weekly_limit %></span> verdicts left this week
+                  </p>
+                  <progress class="progress progress-neutral mt-1.5 h-1.5 w-full" value="<%= allowance.weekly_remaining %>" max="<%= allowance.weekly_limit %>" aria-hidden="true"></progress>
+                </div>
+                <ul class="menu w-full border-t border-base-300 p-0 pt-2">
+                  <li>
+                    <%= link_to "https://github.com/#{Current.user.login}", target: "_blank", rel: "noopener" do %>
+                      <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
+                      GitHub profile
+                    <% end %>
+                  </li>
+                  <li>
+                    <%= link_to session_path, data: { turbo_method: :delete } do %>
+                      <%= lucide_icon "log-out", class: "size-4", "aria-hidden": true %>
+                      Sign out
+                    <% end %>
+                  </li>
+                </ul>
+              </div>
             <% end %>
           </div>
         </nav>

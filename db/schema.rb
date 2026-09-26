@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_26_011629) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_26_013704) do
   create_table "pinned_repositories", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "full_name", null: false
@@ -39,6 +39,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_26_011629) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "head_sha"
+    t.integer "input_tokens", default: 0, null: false
+    t.integer "output_tokens", default: 0, null: false
+    t.index ["created_at"], name: "index_pr_assessments_on_created_at"
+    t.index ["user_id", "created_at"], name: "index_pr_assessments_on_user_id_and_created_at"
     t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_7bb4f04b72"
     t.index ["user_id"], name: "index_pr_assessments_on_user_id"
   end
@@ -60,6 +64,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_26_011629) do
     t.text "github_token"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "github_created_at"
     t.index ["github_uid"], name: "index_users_on_github_uid", unique: true
   end
 

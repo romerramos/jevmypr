@@ -52,7 +52,9 @@ class PrAssessment < ApplicationRecord
       probabilities: decision.probabilities,
       confidence: decision.confidence,
       jev_model: decision.model,
-      diff_truncated: result.diff_truncated
+      diff_truncated: result.diff_truncated,
+      input_tokens: result.usage["input_tokens"].to_i,
+      output_tokens: result.usage["output_tokens"].to_i
     )
   end
 

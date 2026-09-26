@@ -21,3 +21,7 @@ module ActiveSupport
 end
 
 WebMock.disable_net_connect!(allow_localhost: true)
+
+ActiveSupport.on_load(:action_dispatch_integration_test) do
+  setup { ActionController::Base.cache_store.clear }
+end
