@@ -109,6 +109,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Never scroll sideways: the swinging tag and falling strips can poke past the screen edge
+     mid-animation (Safari counts that). clip, unlike hidden, keeps position: sticky working. */
+  html, body {
+    overflow-x: clip;
+  }
+
   body {
     min-height: 100dvh;
   }
@@ -307,7 +313,9 @@
   0% { transform: none; opacity: 1; }
   14% { transform: rotate(-2.5deg); }
   26% { transform: translate(2px, 5px) rotate(3deg); }
-  100% { transform: translate(38px, 240px) rotate(26deg); opacity: 0; margin-bottom: -2.7rem; }
+  99.9% { transform: translate(38px, 240px) rotate(26deg); opacity: 0; margin-bottom: -2.7rem; }
+  /* Once invisible, snap back and collapse: a strip left 240px down would still make the page scroll. */
+  100% { transform: none; opacity: 0; margin-bottom: -2.7rem; visibility: hidden; }
 }
 @keyframes torn-edge { to { mask-size: 9px 100%; border-radius: 0; } }
 @keyframes tag-jolt {
