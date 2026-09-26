@@ -11,11 +11,11 @@ class JevAllowanceTest < ActiveSupport::TestCase
     allowance = JevAllowance.new(@user, now: @now)
 
     assert allowance.allowed?
-    assert_equal 100, allowance.weekly_remaining
+    assert_equal JevAllowance::LIMITS.weekly_verdicts_per_user, allowance.weekly_remaining
   end
 
   test "counts verdicts in the last 7 days against the weekly quota" do
-    99.times { |i| verdict(@user, at: @now - 1.day, number: i) }
+    (JevAllowance::LIMITS.weekly_verdicts_per_user - 1).times { |i| verdict(@user, at: @now - 1.day, number: i) }
     verdict(@user, at: @now - 8.days, number: 500) # outside the window
 
     allowance = JevAllowance.new(@user, now: @now)

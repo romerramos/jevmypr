@@ -60,7 +60,8 @@ Jev my PR only uses your data to answer the question above.
 Jev my PR is free and runs on a small monthly budget, so there are limits (see
 [`app/models/jev_allowance.rb`](app/models/jev_allowance.rb)):
 
-- **100 verdicts per user per week.** Re-reading saved verdicts is free.
+- **30 verdicts per user per week** (about 6 per workday). Re-reading saved verdicts and reopening pull requests
+  that haven't changed since their verdict is free.
 - **5 requests per minute** per user.
 - GitHub accounts **younger than 30 days** can look around but can't ask Jev (keeps bots out).
 - New verdicts **pause for everyone** once the month's estimated Jev spend reaches the budget, until the 1st.

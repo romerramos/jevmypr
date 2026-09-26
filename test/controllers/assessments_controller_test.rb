@@ -41,14 +41,15 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a used-up weekly quota stops before any GitHub or Jev call" do
-    100.times { |i| create_assessment(users(:one), title: "PR #{i}", number: i, created_at: 1.day.ago) }
+    limit = JevAllowance::LIMITS.weekly_verdicts_per_user
+    limit.times { |i| create_assessment(users(:one), title: "PR #{i}", number: i, created_at: 1.day.ago) }
 
     assert_no_difference -> { PrAssessment.count } do
       post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
     end
 
     assert_redirected_to repository_pull_requests_path(owner: "acme", repo: "web")
-    assert_match "used all 100 verdicts", flash[:alert]
+    assert_match "used all #{limit} verdicts", flash[:alert]
     assert_not_requested :any, /api\.github\.com|typesafe/
   end
 
