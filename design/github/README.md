@@ -5,11 +5,14 @@ GitHub → Settings → Developer settings → OAuth Apps → Jev my PR
 | Field | Value |
 |---|---|
 | Application name | Jev my PR |
-| Homepage URL | http://localhost:3000 (your deployed URL later) |
+| Homepage URL | https://jevmypr.romerramos.me (or http://localhost:3000 for development) |
 | Application description | see below |
-| Authorization callback URL | http://localhost:3000/auth/github/callback |
+| Authorization callback URL | https://jevmypr.romerramos.me/auth/github/callback |
 | Logo | `oauth-app-logo.png` (1024×1024) or `oauth-app-logo-512.png` |
 | Badge background color | `#18222E` |
+
+An OAuth App has a single callback URL, so use a second OAuth App for local development with
+`http://localhost:3000/auth/github/callback` and its own client ID and secret.
 
 ## Application description
 

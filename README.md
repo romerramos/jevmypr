@@ -8,6 +8,8 @@
 Pick a PR from your GitHub repositories and Jev reads the diff and tags it:<br>
 <em>human review</em>, <em>an LLM review is enough</em>, or <em>no review needed</em>.</p>
 
+<p align="center"><strong><a href="https://jevmypr.romerramos.me">Try it at jevmypr.romerramos.me</a></strong> · free, sign in with GitHub</p>
+
 <p align="center">
   <img src="docs/picker.png" alt="Choosing a pull request: repositories on the left, open pull requests with earlier verdicts on the right" width="820">
 </p>
