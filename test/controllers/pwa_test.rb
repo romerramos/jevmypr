@@ -10,7 +10,7 @@ class PwaTest < ActionDispatch::IntegrationTest
     assert_select "link[rel=apple-touch-icon][href='/apple-touch-icon.png']"
     assert_select "meta[name=theme-color]", 2
     assert_select "footer", text: /Jev is almost free to run/ do
-      assert_select "a[href='https://buymeacoffee.com/romerramos']", /Keep the meter running/
+      assert_select "a[href='https://buymeacoffee.com/romerramos']", /Chip in for tokens/
     end
   end
 
