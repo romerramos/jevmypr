@@ -43,3 +43,7 @@
 # AI coding-agent setup (skills etc.) stays local
 /.claude/
 /skills-lock.json
+
+# Encrypted credentials stay local: each deployment uses its own (see config/credentials.example.yml)
+/config/credentials.yml.enc
+/config/credentials/*.yml.enc
