@@ -64,12 +64,6 @@
         <% end %>
       </div>
 
-      <%# Right after the answer, while the user decides what to do next: one quiet line, before the reference material. %>
-      <p class="mt-6 max-w-xl text-sm leading-relaxed text-base-content/55">
-        That verdict cost Jev a few tokens. If it spared you a review, you could spare a
-        <%= coffee_link "coffee", icon: false, class: "font-medium text-base-content/75 underline decoration-base-content/30 underline-offset-4 transition-colors duration-150 hover:text-base-content hover:decoration-current" %>.
-      </p>
-
       <section class="mt-12 max-w-2xl" aria-labelledby="changed-files">
         <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-base-300 pb-2">
           <h2 id="changed-files" class="font-display text-lg font-bold"><%= pluralize(@assessment.changed_files, "changed file") %></h2>

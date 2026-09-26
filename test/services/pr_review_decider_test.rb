@@ -73,4 +73,12 @@ class PrReviewDeciderTest < ActiveSupport::TestCase
 
     assert_raises(Jev::Client::Error) { PrReviewDecider.new(github: FakeGithub.new, jev: jev).decide("acme/web", 7) }
   end
+
+  test "a pull request too big for Jev raises TooLarge with the pull request" do
+    jev = Object.new
+    def jev.ask(**) = raise(Jev::Client::TooLarge, "too big")
+
+    error = assert_raises(PrReviewDecider::TooLarge) { PrReviewDecider.new(github: FakeGithub.new, jev: jev).decide("acme/web", 7) }
+    assert_equal "abc123", error.pull_request.head_sha
+  end
 end

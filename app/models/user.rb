@@ -2,6 +2,7 @@ class User < ApplicationRecord
   has_many :sessions, dependent: :destroy
   has_many :pr_assessments, dependent: :destroy
   has_many :pinned_repositories, dependent: :destroy
+  has_many :oversized_pull_requests, dependent: :destroy
 
   encrypts :github_token
 

@@ -1,5 +1,5 @@
 # Lets people remove everything Jev my PR stores about them: their user record, encrypted GitHub
-# token, sessions, verdicts and pinned repositories.
+# token, sessions, verdicts, pinned repositories and too-big marks.
 class AccountsController < ApplicationController
   def destroy
     user = Current.user

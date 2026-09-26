@@ -12,6 +12,16 @@ class PrReviewDecider
   }.freeze
   MAX_DIFF_BYTES = 100_000
 
+  # The pull request is too big for Jev to read, even with the diff cut to MAX_DIFF_BYTES.
+  class TooLarge < Jev::Client::Error
+    attr_reader :pull_request
+
+    def initialize(pull_request)
+      @pull_request = pull_request
+      super("##{pull_request.number} is too big for Jev to read in one go.")
+    end
+  end
+
   Decision = Data.define(:choice, :probabilities, :confidence, :model)
   Result = Data.define(:pull_request, :files, :decision, :diff_truncated, :usage)
 
@@ -26,7 +36,11 @@ class PrReviewDecider
     diff = @github.pull_request_diff(full_name, number).to_s
     truncated = diff.bytesize > MAX_DIFF_BYTES
 
-    response = @jev.ask(state: state_for(full_name, pull_request, files, diff, truncated), questions: { QUESTION_ID => question })
+    response = begin
+      @jev.ask(state: state_for(full_name, pull_request, files, diff, truncated), questions: { QUESTION_ID => question })
+    rescue Jev::Client::TooLarge
+      raise TooLarge, pull_request
+    end
 
     Result.new(pull_request: pull_request, files: files, decision: decision_from(response), diff_truncated: truncated,
                usage: response.usage.to_h)

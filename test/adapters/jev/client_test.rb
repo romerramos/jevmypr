@@ -48,6 +48,16 @@ class Jev::ClientTest < ActiveSupport::TestCase
     assert_match "state is required", error.message
   end
 
+  test "a request bigger than Jev's context window raises TooLarge, other 400s a plain Error" do
+    stub_request(:post, URL).to_return(json_response({ error_type: "max_tokens_exceeded" }, status: 400))
+    assert_raises(Jev::Client::TooLarge) { @client.ask(state: "x", questions: {}) }
+
+    stub_request(:post, URL).to_return(json_response({ error: "bad question" }, status: 400))
+    error = assert_raises(Jev::Client::Error) { @client.ask(state: "x", questions: {}) }
+    assert_not_kind_of Jev::Client::TooLarge, error
+    assert_match "bad question", error.message
+  end
+
   test "network failures become Unavailable" do
     stub_request(:post, URL).to_timeout
 

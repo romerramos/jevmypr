@@ -10,7 +10,18 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_26_013704) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_26_190126) do
+  create_table "oversized_pull_requests", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "repo_full_name", null: false
+    t.integer "pr_number", null: false
+    t.string "head_sha"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_49d7c0e14b", unique: true
+    t.index ["user_id"], name: "index_oversized_pull_requests_on_user_id"
+  end
+
   create_table "pinned_repositories", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "full_name", null: false
@@ -68,6 +79,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_26_013704) do
     t.index ["github_uid"], name: "index_users_on_github_uid", unique: true
   end
 
+  add_foreign_key "oversized_pull_requests", "users"
   add_foreign_key "pinned_repositories", "users"
   add_foreign_key "pr_assessments", "users"
   add_foreign_key "sessions", "users"

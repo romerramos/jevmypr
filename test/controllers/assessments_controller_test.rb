@@ -76,6 +76,40 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_match "Jev rejected the API key", flash[:alert]
   end
 
+  test "a pull request too big for Jev gets a friendly message and is marked too big" do
+    stub_github_pull_request
+    stub_request(:post, Jev::Client::URL).to_return(json_response({ error_type: "max_tokens_exceeded" }, status: 400))
+
+    assert_no_difference -> { PrAssessment.count } do
+      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
+    end
+
+    assert_redirected_to repository_pull_requests_path(owner: "acme", repo: "web")
+    assert_match "too big for Jev", flash[:alert]
+    assert_no_match "HTTP 400", flash[:alert]
+    assert_equal [ "acme/web", 7, "sha-7" ], users(:one).oversized_pull_requests.sole.values_at(:repo_full_name, :pr_number, :head_sha)
+  end
+
+  test "asking again about an unchanged pull request that's too big doesn't call Jev" do
+    users(:one).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 7, head_sha: "sha-7")
+    stub_github_pull_request
+
+    post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
+
+    assert_match "too big for Jev", flash[:alert]
+    assert_not_requested :post, Jev::Client::URL
+  end
+
+  test "a too-big pull request that changed since can be asked about again" do
+    users(:one).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 7, head_sha: "old-sha")
+    stub_github_pull_request
+    stub_jev(choice: "no")
+
+    assert_difference -> { PrAssessment.count }, 1 do
+      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
+    end
+  end
+
   test "a missing pull request returns to the picker" do
     stub_request(:get, "#{ApiStubs::GITHUB}/repos/acme/web/pulls/99").to_return(json_response({}, status: 404))
 
@@ -145,9 +179,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     get assessment_path(assessment)
 
     assert_select "a[href=?]", "/repositories/acme/web/pull_requests", text: /Pull requests in acme\/web/
-    assert_select "p", text: /That verdict cost Jev a few tokens/ do
-      assert_select "a[href='https://buymeacoffee.com/romerramos'][target=_blank][rel=noopener]", "coffee"
-    end
+    assert_select "p", text: /That verdict cost Jev a few tokens/, count: 0
   end
 
   test "users can only see their own assessments" do

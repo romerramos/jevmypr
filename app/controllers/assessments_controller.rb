@@ -5,6 +5,9 @@ class AssessmentsController < ApplicationController
     by: -> { Current.user&.id || request.remote_ip },
     with: -> { redirect_back_or_to repositories_path, alert: "That's a lot of pull requests at once. Wait a minute and try again." }
 
+  TOO_BIG_MESSAGE = "That pull request is too big for Jev to read in one go, so it's marked “Too big”. " \
+                    "It deserves a human review anyway. If it gets smaller, you can ask Jev again."
+
   def index
     @query = params[:q].to_s.strip
     @verdict = params[:verdict].presence_in(PrAssessment::VERDICTS.keys)
@@ -25,11 +28,19 @@ class AssessmentsController < ApplicationController
       return redirect_back_or_to repository_pull_requests_path(owner: params[:owner], repo: params[:repo]), alert: denial.message
     end
 
+    if (oversized = Current.user.oversized_pull_requests.find_by(repo_full_name: repo, pr_number: params[:pull_request_number])) &&
+       oversized.current_for?(github.pull_request(repo, oversized.pr_number))
+      return redirect_to repository_pull_requests_path(owner: params[:owner], repo: params[:repo]), alert: TOO_BIG_MESSAGE
+    end
+
     result = PrReviewDecider.new(github: github).decide(repo, params[:pull_request_number])
     assessment = PrAssessment.from_result(user: Current.user, repo_full_name: repo, result: result)
     assessment.save!
 
     redirect_to assessment_path(assessment)
+  rescue PrReviewDecider::TooLarge => error
+    OversizedPullRequest.record!(user: Current.user, repo_full_name: repo, pull_request: error.pull_request)
+    redirect_to repository_pull_requests_path(owner: params[:owner], repo: params[:repo]), alert: TOO_BIG_MESSAGE
   rescue Github::Client::Unauthorized => error
     terminate_session
     redirect_to new_session_path, alert: error.message

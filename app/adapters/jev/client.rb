@@ -11,6 +11,7 @@ module Jev
     class Unauthorized < Error; end
     class ValidationError < Error; end
     class Unavailable < Error; end
+    class TooLarge < Error; end
 
     Response = Data.define(:model, :answers, :usage)
 
@@ -45,10 +46,20 @@ module Jev
       def handle_errors!(response)
         case response.status
         when 200..299 then nil
+        when 400 then raise too_large_or_error(response)
         when 401 then raise Unauthorized, "Jev rejected the API key. Check typesafe.api_key in your credentials."
         when 422 then raise ValidationError, "Jev couldn't read the request: #{error_detail(response)}"
         when *RETRY_STATUSES then raise Unavailable, "Jev is busy right now (HTTP #{response.status}). Try again in a minute."
         else raise Error, "Jev returned HTTP #{response.status}: #{error_detail(response)}"
+        end
+      end
+
+      # Jev answers HTTP 400 with e.g. { "error_type": "max_tokens_exceeded" } when the state doesn't fit its context window.
+      def too_large_or_error(response)
+        if response.body.to_s.match?(/max_tokens|context|too (long|large)/i)
+          TooLarge.new("The request is bigger than Jev's context window.")
+        else
+          Error.new("Jev returned HTTP 400: #{error_detail(response)}")
         end
       end
 

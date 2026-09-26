@@ -7,6 +7,7 @@ class PullRequestsController < ApplicationController
     @pull_requests = github.pull_requests(@repo, query: @query)
     @previous_verdicts = Current.user.pr_assessments.where(repo_full_name: @repo).recent
       .group_by(&:pr_number).transform_values(&:first)
+    @oversized = Current.user.oversized_pull_requests.where(repo_full_name: @repo).index_by(&:pr_number)
   end
 
   private

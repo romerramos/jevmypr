@@ -63,6 +63,18 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form.ask-jev", 2
   end
 
+  test "a pull request too big for Jev opens on GitHub instead of asking again, until it changes" do
+    users(:one).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 7, head_sha: "sha-7")
+    users(:one).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 8, head_sha: "old-sha")
+    stub_github_pull_requests([ 7, 8 ].map { |n| pull_request_node(number: n, title: "PR #{n}", head_sha: "sha-#{n}") })
+
+    get repository_pull_requests_path(owner: "acme", repo: "web")
+
+    assert_select "a[href=?][target=_blank]", "https://github.com/acme/web/pull/7", text: /Too big for Jev.*Too big/m
+    assert_select "form.ask-jev[action=?]", "/repositories/acme/web/pull_requests/7/assessments", 0
+    assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/8/assessments", text: /Ask Jev/
+  end
+
   test "search renders into the results frame" do
     stub_github_pull_requests([ pull_request_node(number: 7, title: "Fix login redirect") ])
 
