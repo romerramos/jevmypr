@@ -8,6 +8,10 @@ class ApplicationController < ActionController::Base
 
   private
     def github
-      @github ||= Github::Client.new(Current.user.github_token)
+      @github ||= if DevelopmentPreview.enabled? && Current.user.github_uid == DevelopmentPreview::UID
+        Github::PreviewClient.new
+      else
+        Github::Client.new(Current.user.github_token)
+      end
     end
 end

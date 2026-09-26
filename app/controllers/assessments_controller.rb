@@ -33,7 +33,7 @@ class AssessmentsController < ApplicationController
       return redirect_to repository_pull_requests_path(owner: params[:owner], repo: params[:repo]), alert: TOO_BIG_MESSAGE
     end
 
-    result = PrReviewDecider.new(github: github).decide(repo, params[:pull_request_number])
+    result = PrReviewDecider.new(github: github, jev: jev).decide(repo, params[:pull_request_number])
     assessment = PrAssessment.from_result(user: Current.user, repo_full_name: repo, result: result)
     assessment.save!
 
@@ -47,4 +47,9 @@ class AssessmentsController < ApplicationController
   rescue Github::Client::Error, Jev::Client::Error => error
     redirect_to repository_pull_requests_path(owner: params[:owner], repo: params[:repo]), alert: error.message
   end
+
+  private
+    def jev
+      DevelopmentPreview.enabled? && Current.user.github_uid == DevelopmentPreview::UID ? Jev::PreviewClient.new : Jev::Client.new
+    end
 end

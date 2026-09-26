@@ -58,6 +58,7 @@ class PrReviewDecider
     def state_for(full_name, pull_request, files, diff, truncated)
       {
         repository: full_name,
+        number: pull_request.number,
         title: pull_request.title,
         description: pull_request.body.to_s.truncate(5_000),
         author: pull_request.author_login,

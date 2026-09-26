@@ -14,10 +14,16 @@
           Continue with GitHub
         <% end %>
         <p class="mt-3 text-sm text-base-content/60">We read your repositories and pull requests. Nothing is written to GitHub.</p>
+      <% elsif DevelopmentPreview.enabled? %>
+        <%= button_to preview_session_path, class: "btn btn-primary btn-lg" do %>
+          <%= lucide_icon "flask-conical", class: "size-5", "aria-hidden": true %>
+          Try with sample data
+        <% end %>
+        <p class="mt-3 max-w-md text-sm text-base-content/60">No GitHub or Jev credentials. The repositories, pull requests and verdicts are local samples.</p>
       <% else %>
         <div role="alert" class="alert alert-warning alert-soft max-w-md">
           <%= lucide_icon "key-round", class: "size-5", "aria-hidden": true %>
-          <span>GitHub sign-in isn't set up. Add <code>github.client_id</code> and <code>github.client_secret</code> with <code>bin/rails credentials:edit</code> (or set <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code>), then restart the server.</span>
+          <span>GitHub sign-in isn't set up. Add <code>github.client_id</code> and <code>github.client_secret</code> with <code>bin/rails credentials:edit</code> (or set <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code>), then restart the server. To look around without credentials, start with <code>JEV_PREVIEW=1 bin/dev</code>.</span>
         </div>
       <% end %>
     </div>

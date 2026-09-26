@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   resource :session, only: %i[ new destroy ]
   resource :account, only: :destroy
   get "auth/github/callback", to: "sessions#create", as: :github_callback
+  post "preview", to: "sessions#preview", as: :preview_session
   get "auth/failure", to: "sessions#failure"
 
   root to: redirect("/repositories", status: 302)
