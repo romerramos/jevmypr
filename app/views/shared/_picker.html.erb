@@ -1,13 +1,13 @@
 <%#
   Two panes on desktop: the repository sidebar (kept across visits with data-turbo-permanent)
   and the page's own content. On phones each page shows only its own pane.
-  Locals: page ("repositories" or "pulls"), repositories (nil to lazy-load), query.
+  Locals: page ("repositories" or "pulls"), title, intro, repositories (nil to lazy-load), query, pinned.
 %>
 <div class="group/picker" data-page="<%= page %>" data-controller="picker"
      data-action="keydown@window->picker#focusSearch keydown->picker#navigate turbo:load@document->picker#markCurrent turbo:frame-load->picker#markCurrent">
   <header class="max-md:group-data-[page=pulls]/picker:hidden">
-    <h1 class="font-display text-3xl font-extrabold sm:text-4xl">Which PR should Jev triage?</h1>
-    <p class="mt-2 text-base-content/70">Choose a repository, then a pull request. Jev reads the diff and tags it.</p>
+    <h1 class="font-display text-3xl font-extrabold sm:text-4xl"><%= title %></h1>
+    <p class="mt-2 text-base-content/70"><%= intro %></p>
   </header>
 
   <%# Page header for phones, outside the list (navigation and title). %>
@@ -28,7 +28,7 @@
       <% end %>
 
       <% if repositories %>
-        <%= render "repositories/list", repositories: repositories, query: query %>
+        <%= render "repositories/list", repositories: repositories, query: query, pinned: local_assigns[:pinned] %>
       <% else %>
         <%= turbo_frame_tag "repositories", src: repositories_path, class: "block flex-1 overflow-x-hidden md:max-h-[32rem] md:overflow-y-auto",
               data: { loading_label: "Loading repositories…" } do %>

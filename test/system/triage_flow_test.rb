@@ -45,4 +45,25 @@ class TriageFlowTest < ApplicationSystemTestCase
 
     assert_equal "Search repositories", page.evaluate_script("document.activeElement.getAttribute('aria-label')")
   end
+
+  test "pin a repository to the top and unpin it" do
+    stub_github_repositories("acme/alpha", "acme/beta", "acme/gamma")
+    sign_in_with_github users(:one)
+    assert_equal %w[alpha beta gamma], repo_names
+
+    find("#repositories li", text: "acme/gamma").hover # the pin appears on hover for mouse users
+    click_on "Pin acme/gamma"
+    assert_selector "button[aria-label='Unpin acme/gamma'][aria-pressed=true]"
+    assert_equal %w[gamma alpha beta], repo_names
+    assert_selector "#repositories li[role=separator]"
+
+    click_on "Unpin acme/gamma"
+    assert_selector "button[aria-label='Pin acme/gamma'][aria-pressed=false]", visible: :all
+    assert_equal %w[alpha beta gamma], repo_names
+  end
+
+  private
+    def repo_names
+      all("#repositories a[data-picker-item]").map { |a| URI(a[:href]).path.split("/")[3] }
+    end
 end

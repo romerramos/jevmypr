@@ -22,7 +22,10 @@
   </header>
 <% end %>
 
-<%= render layout: "shared/picker", locals: { page: "pulls", repositories: nil, query: nil } do %>
+<%= render layout: "shared/picker", locals: {
+      page: "pulls", repositories: nil, query: nil,
+      title: "Choose a pull request",
+      intro: "Jev reads its diff and tags it for a human review, an LLM review, or no review at all." } do %>
   <div class="z-10 border-b border-base-300 bg-base-200 max-md:sticky max-md:top-0">
     <div class="flex items-center gap-2 px-3 pt-3 max-md:hidden">
       <h2 class="min-w-0 flex-1 leading-tight">

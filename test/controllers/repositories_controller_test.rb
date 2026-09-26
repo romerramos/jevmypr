@@ -16,11 +16,28 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     get repositories_path
 
     assert_response :success
-    assert_select "title", "Repositories – Jev my PR"
     assert_select "aside#repository_sidebar[data-turbo-permanent] turbo-frame#repositories a[data-picker-item]", 2
     assert_select "a[href=?][data-turbo-frame=_top]", "/repositories/acme/web/pull_requests"
     assert_select "a[href='/repositories/acme/secret-api/pull_requests'] svg[aria-label='Private']"
     assert_select "#account-menu", text: /Signed in as octocat/
+  end
+
+  test "pinned repositories come first, marked and separated from the rest" do
+    sign_in_as users(:one)
+    users(:one).pinned_repositories.create!(full_name: "acme/zeta")
+    stub_github_repositories("acme/alpha", "acme/beta", "acme/zeta")
+
+    get repositories_path
+
+    assert_select "title", "Repositories – Jev my PR"
+    assert_select "h1", "Choose a repository"
+    order = css_select("a[data-picker-item]").map { |a| a["href"] }
+    assert_equal %w[/repositories/acme/zeta/pull_requests /repositories/acme/alpha/pull_requests /repositories/acme/beta/pull_requests], order
+    assert_select "form[action=?] button[aria-pressed=true][aria-label='Unpin acme/zeta']", "/repositories/acme/zeta/pin"
+    assert_select "form[action=?] input[name=_method][value=delete]", "/repositories/acme/zeta/pin"
+    assert_select "button[aria-pressed=false][aria-label='Pin acme/alpha']"
+    assert_select "li[role=separator]", 1
+    assert_select "turbo-frame#repositories[data-turbo-prefetch=false]"
   end
 
   test "search filters and explains an empty result" do

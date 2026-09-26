@@ -9,6 +9,7 @@ Rails.application.routes.draw do
 
   # GitHub repositories are addressed by owner/name, e.g. /repositories/rails/rails/pull_requests
   scope "repositories/:owner/:repo", as: :repository, constraints: { owner: %r{[^/]+}, repo: %r{[^/]+} } do
+    resource :pin, only: %i[ create destroy ]
     resources :pull_requests, only: :index, param: :number do
       resources :assessments, only: :create
     end

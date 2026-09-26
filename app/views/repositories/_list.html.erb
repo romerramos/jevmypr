@@ -1,29 +1,47 @@
+<%#
+  Locals: repositories (pinned first), query, pinned (Set of full names).
+  Hover prefetch is off here: each repository page costs a GitHub API call.
+%>
+<% pinned = local_assigns[:pinned] || Set.new %>
 <%= turbo_frame_tag "repositories", class: "block flex-1 overflow-x-hidden md:max-h-[32rem] md:overflow-y-auto",
-      data: { loading_label: "Loading repositories…" } do %>
+      data: { loading_label: "Loading repositories…", turbo_prefetch: false } do %>
   <% if repositories.empty? %>
     <p class="p-6 text-center text-base-content/60">
       <%= query.present? ? "No repositories match “#{query}”." : "You don't have any repositories on GitHub yet." %>
     </p>
   <% else %>
-    <ul class="menu w-full gap-0.5 p-2" aria-label="Repositories">
-      <% repositories.each do |repo| %>
-        <li>
+    <ul class="flex flex-col gap-0.5 p-2" aria-label="Repositories">
+      <% repositories.each_with_index do |repo, index| %>
+        <% is_pinned = pinned.include?(repo.full_name) %>
+        <li class="group/row relative">
           <%= link_to pull_requests_path_for(repo.full_name),
-                class: "flex items-center gap-3 rounded-field py-2 text-base-content focus:text-base-content active:text-base-content aria-[current=page]:bg-base-300 aria-[current=page]:font-semibold",
+                class: "flex items-center rounded-field py-2 pl-3 pr-12 transition-colors duration-150 hover:bg-base-200 focus-visible:bg-base-200 aria-[current=page]:bg-base-300 aria-[current=page]:font-semibold",
                 data: { turbo_frame: "_top", picker_item: true } do %>
             <span class="min-w-0 flex-1">
-              <span class="block truncate">
-                <span class="text-base-content/60"><%= repo.owner %>/</span><%= repo.name %>
+              <span class="flex min-w-0 items-center gap-1.5">
+                <span class="truncate"><span class="text-base-content/60"><%= repo.owner %>/</span><%= repo.name %></span>
+                <% if repo.private %>
+                  <%= lucide_icon "lock", class: "size-3 shrink-0 opacity-45", "aria-label": "Private" %>
+                <% end %>
               </span>
               <% if repo.pushed_at %>
                 <span class="block text-xs font-normal text-base-content/50">pushed <%= time_tag repo.pushed_at, short_time_ago(repo.pushed_at) %></span>
               <% end %>
             </span>
-            <% if repo.private %>
-              <%= lucide_icon "lock", class: "size-3.5 shrink-0 opacity-50", "aria-label": "Private" %>
-            <% end %>
+          <% end %>
+
+          <%= button_to pin_path_for(repo.full_name, q: query.presence), method: (is_pinned ? :delete : :post),
+                form: { class: "absolute top-1/2 right-1.5 -translate-y-1/2" },
+                class: ["btn btn-ghost btn-circle btn-sm transition-opacity duration-150",
+                        is_pinned ? "text-tag-red aria-pressed:border-transparent aria-pressed:bg-transparent aria-pressed:shadow-none aria-pressed:hover:bg-base-200" : "opacity-40 hover:opacity-100 focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/row:opacity-60 [@media(hover:hover)]:group-focus-within/row:opacity-60"],
+                title: (is_pinned ? "Unpin" : "Pin to the top"),
+                "aria-label": "#{is_pinned ? "Unpin" : "Pin"} #{repo.full_name}", "aria-pressed": is_pinned do %>
+            <%= lucide_icon "pin", class: ["size-4", ("rotate-45 fill-current" if is_pinned)].compact.join(" "), "aria-hidden": true %>
           <% end %>
         </li>
+        <% if is_pinned && !pinned.include?(repositories[index + 1]&.full_name) && repositories[index + 1] %>
+          <li role="separator" aria-hidden="true" class="mx-3 my-1.5 border-t border-base-300"></li>
+        <% end %>
       <% end %>
     </ul>
   <% end %>
