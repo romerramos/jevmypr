@@ -1,4 +1,6 @@
 module ApplicationHelper
+  BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/romerramos".freeze
+
   def github_sign_in_configured?
     github = Rails.application.credentials.github
     github.present? && github[:client_id].present? && github[:client_secret].present?
@@ -17,6 +19,13 @@ module ApplicationHelper
     elsif seconds < 1.day then "#{seconds / 3600}h ago"
     elsif seconds < 30.days then "#{seconds / 1.day.to_i}d ago"
     else time.strftime(time.year == now.year ? "%b %-d" : "%b %Y")
+    end
+  end
+
+  # Link to the maintainer's Buy Me a Coffee page. The icon is for standalone links, not running text.
+  def coffee_link(text, icon: true, **options)
+    link_to BUY_ME_A_COFFEE_URL, target: "_blank", rel: "noopener", **options do
+      icon ? safe_join([ lucide_icon("coffee", class: "size-4 shrink-0", "aria-hidden": true), text ], " ") : text
     end
   end
 end

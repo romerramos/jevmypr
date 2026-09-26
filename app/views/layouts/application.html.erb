@@ -96,5 +96,13 @@
     <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6 md:py-10" data-loading-label="Loading…">
       <%= yield %>
     </main>
+
+    <footer class="border-t border-base-300">
+      <div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-sm text-base-content/60 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <p>Jev is almost free to run. Almost.</p>
+        <%= coffee_link "Keep the meter running",
+              class: "inline-flex items-center gap-1.5 self-start rounded-field font-medium text-base-content/70 underline-offset-4 transition-colors duration-150 hover:text-base-content hover:underline" %>
+      </div>
+    </footer>
   </body>
 </html>

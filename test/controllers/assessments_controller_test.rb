@@ -67,6 +67,9 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     get assessment_path(assessment)
 
     assert_select "a[href=?]", "/repositories/acme/web/pull_requests", text: /Pull requests in acme\/web/
+    assert_select "p", text: /That verdict cost Jev a few tokens/ do
+      assert_select "a[href='https://buymeacoffee.com/romerramos'][target=_blank][rel=noopener]", "coffee"
+    end
   end
 
   test "users can only see their own assessments" do
