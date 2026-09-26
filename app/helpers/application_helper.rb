@@ -2,13 +2,12 @@ module ApplicationHelper
   BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/romerramos".freeze
 
   def github_sign_in_configured?
-    github = Rails.application.credentials.github
-    github.present? && github[:client_id].present? && github[:client_secret].present?
+    AppSecrets[:github_client_id].present? && AppSecrets[:github_client_secret].present?
   end
 
   # Where the user grants this OAuth App access to organizations (and sees what it can read).
   def github_app_access_url
-    "https://github.com/settings/connections/applications/#{Rails.application.credentials.dig(:github, :client_id)}"
+    "https://github.com/settings/connections/applications/#{AppSecrets[:github_client_id]}"
   end
 
   # Compact relative time for dense lists: "just now", "5m ago", "3h ago", "4d ago", "Mar 2", "Mar 2023".

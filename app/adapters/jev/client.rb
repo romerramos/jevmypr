@@ -18,10 +18,7 @@ module Jev
     DEFAULT_MODEL = "jev-latest"
     RETRY_STATUSES = [ 429, 529 ].freeze
 
-    # The key comes from credentials (typesafe.api_key) or, e.g. in CI or containers, TYPESAFE_API_KEY.
-    def self.default_api_key = Rails.application.credentials.dig(:typesafe, :api_key).presence || ENV["TYPESAFE_API_KEY"]
-
-    def initialize(api_key: self.class.default_api_key, retry_interval: 1)
+    def initialize(api_key: AppSecrets[:typesafe_api_key], retry_interval: 1)
       raise Unauthorized, "Missing Jev API key. Add typesafe.api_key with bin/rails credentials:edit." if api_key.blank?
 
       @connection = Faraday.new(url: URL) do |f|

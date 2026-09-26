@@ -39,3 +39,7 @@
 
 # macOS Finder metadata
 .DS_Store
+
+# AI coding-agent setup (skills etc.) stays local
+/.claude/
+/skills-lock.json

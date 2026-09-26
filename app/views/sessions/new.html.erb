@@ -17,7 +17,7 @@
       <% else %>
         <div role="alert" class="alert alert-warning alert-soft max-w-md">
           <%= lucide_icon "key-round", class: "size-5", "aria-hidden": true %>
-          <span>GitHub sign-in isn't set up. Add <code>github.client_id</code> and <code>github.client_secret</code> with <code>bin/rails credentials:edit</code>, then restart the server.</span>
+          <span>GitHub sign-in isn't set up. Add <code>github.client_id</code> and <code>github.client_secret</code> with <code>bin/rails credentials:edit</code> (or set <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code>), then restart the server.</span>
         </div>
       <% end %>
     </div>

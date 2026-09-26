@@ -29,9 +29,6 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <%= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Atkinson+Hyperlegible+Next:wght@400;500;700&display=swap">
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
@@ -90,6 +87,13 @@
                     <%= link_to session_path, data: { turbo_method: :delete } do %>
                       <%= lucide_icon "log-out", class: "size-4", "aria-hidden": true %>
                       Sign out
+                    <% end %>
+                  </li>
+                  <li>
+                    <%= link_to account_path, class: "text-error",
+                          data: { turbo_method: :delete, turbo_confirm: "Delete your account, all your verdicts and pins? This can't be undone." } do %>
+                      <%= lucide_icon "trash-2", class: "size-4", "aria-hidden": true %>
+                      Delete my data
                     <% end %>
                   </li>
                 </ul>
