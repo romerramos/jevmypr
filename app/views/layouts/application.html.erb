@@ -38,71 +38,75 @@
   </head>
 
   <body class="flex flex-col <%= "app-shell:h-dvh app-shell:overflow-hidden" if content_for?(:app_shell) %>">
-    <header class="border-b border-base-300">
-      <nav class="navbar mx-auto max-w-6xl px-4 sm:px-6">
-        <div class="navbar-start">
-          <%= link_to repositories_path, class: "flex items-center gap-2 font-display text-lg font-extrabold", "aria-label": "Jev my PR home" do %>
-            <%= image_tag "/icon.svg", alt: "", class: "size-7", "aria-hidden": true %>
-            Jev my PR
-          <% end %>
-        </div>
-        <div class="navbar-end gap-1">
-          <button type="button" class="btn btn-ghost btn-square btn-sm" data-action="theme#toggle" aria-label="Switch colour theme">
-            <%= lucide_icon "moon", class: "size-4 in-data-[theme=triage-night]:hidden", "aria-hidden": true %>
-            <%= lucide_icon "sun-medium", class: "size-4 hidden in-data-[theme=triage-night]:block", "aria-hidden": true %>
-          </button>
-          <% if authenticated? %>
-            <%= link_to assessments_path, class: "btn btn-ghost btn-sm gap-1.5" do %>
-              <%= lucide_icon "tags", class: "size-4", "aria-hidden": true %>
-              <span class="max-sm:sr-only">Verdicts</span>
+    <%# Clips anything wider than the screen (e.g. the swinging tag mid-animation) so nothing can widen
+        the page on any device. A regular element clips for real; body's overflow would go to the viewport. %>
+    <div class="flex min-h-0 flex-1 flex-col overflow-x-clip">
+      <header class="border-b border-base-300">
+        <nav class="navbar mx-auto max-w-6xl px-4 sm:px-6">
+          <div class="navbar-start">
+            <%= link_to repositories_path, class: "flex items-center gap-2 font-display text-lg font-extrabold", "aria-label": "Jev my PR home" do %>
+              <%= image_tag "/icon.svg", alt: "", class: "size-7", "aria-hidden": true %>
+              Jev my PR
             <% end %>
-            <button type="button" class="btn btn-ghost btn-sm gap-2 px-1.5" popovertarget="account-menu" style="anchor-name: --account-menu" aria-label="Account menu">
-              <span class="avatar">
-                <span class="block size-7 overflow-hidden rounded-full bg-base-300">
-                  <% if Current.user.avatar_url.present? %>
-                    <%= image_tag Current.user.avatar_url, alt: "" %>
-                  <% end %>
-                </span>
-              </span>
-              <span class="hidden sm:inline"><%= Current.user.login %></span>
-              <%= lucide_icon "chevron-down", class: "size-3.5 opacity-60", "aria-hidden": true %>
+          </div>
+          <div class="navbar-end gap-1">
+            <button type="button" class="btn btn-ghost btn-square btn-sm" data-action="theme#toggle" aria-label="Switch colour theme">
+              <%= lucide_icon "moon", class: "size-4 in-data-[theme=triage-night]:hidden", "aria-hidden": true %>
+              <%= lucide_icon "sun-medium", class: "size-4 hidden in-data-[theme=triage-night]:block", "aria-hidden": true %>
             </button>
-            <ul class="dropdown dropdown-end menu mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg" popover id="account-menu" style="position-anchor: --account-menu">
-              <li class="menu-title">Signed in as <%= Current.user.login %></li>
-              <li>
-                <%= link_to "https://github.com/#{Current.user.login}", target: "_blank", rel: "noopener" do %>
-                  <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
-                  GitHub profile
-                <% end %>
-              </li>
-              <li>
-                <%= link_to session_path, data: { turbo_method: :delete } do %>
-                  <%= lucide_icon "log-out", class: "size-4", "aria-hidden": true %>
-                  Sign out
-                <% end %>
-              </li>
-            </ul>
-          <% end %>
+            <% if authenticated? %>
+              <%= link_to assessments_path, class: "btn btn-ghost btn-sm gap-1.5" do %>
+                <%= lucide_icon "tags", class: "size-4", "aria-hidden": true %>
+                <span class="max-sm:sr-only">Verdicts</span>
+              <% end %>
+              <button type="button" class="btn btn-ghost btn-sm gap-2 px-1.5" popovertarget="account-menu" style="anchor-name: --account-menu" aria-label="Account menu">
+                <span class="avatar">
+                  <span class="block size-7 overflow-hidden rounded-full bg-base-300">
+                    <% if Current.user.avatar_url.present? %>
+                      <%= image_tag Current.user.avatar_url, alt: "" %>
+                    <% end %>
+                  </span>
+                </span>
+                <span class="hidden sm:inline"><%= Current.user.login %></span>
+                <%= lucide_icon "chevron-down", class: "size-3.5 opacity-60", "aria-hidden": true %>
+              </button>
+              <ul class="dropdown dropdown-end menu mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg" popover id="account-menu" style="position-anchor: --account-menu">
+                <li class="menu-title">Signed in as <%= Current.user.login %></li>
+                <li>
+                  <%= link_to "https://github.com/#{Current.user.login}", target: "_blank", rel: "noopener" do %>
+                    <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
+                    GitHub profile
+                  <% end %>
+                </li>
+                <li>
+                  <%= link_to session_path, data: { turbo_method: :delete } do %>
+                    <%= lucide_icon "log-out", class: "size-4", "aria-hidden": true %>
+                    Sign out
+                  <% end %>
+                </li>
+              </ul>
+            <% end %>
+          </div>
+        </nav>
+      </header>
+
+      <% flash.each do |type, message| %>
+        <div role="<%= type == "alert" ? "alert" : "status" %>" class="mx-auto mt-4 w-full max-w-6xl px-4 sm:px-6">
+          <div class="alert <%= type == "alert" ? "alert-error" : "alert-info" %> alert-soft"><%= message %></div>
         </div>
-      </nav>
-    </header>
+      <% end %>
 
-    <% flash.each do |type, message| %>
-      <div role="<%= type == "alert" ? "alert" : "status" %>" class="mx-auto mt-4 w-full max-w-6xl px-4 sm:px-6">
-        <div class="alert <%= type == "alert" ? "alert-error" : "alert-info" %> alert-soft"><%= message %></div>
-      </div>
-    <% end %>
+      <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6 md:py-10 <%= "app-shell:min-h-0 app-shell:py-8" if content_for?(:app_shell) %>" data-loading-label="Loading…">
+        <%= yield %>
+      </main>
 
-    <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6 md:py-10 <%= "app-shell:min-h-0 app-shell:py-8" if content_for?(:app_shell) %>" data-loading-label="Loading…">
-      <%= yield %>
-    </main>
-
-    <footer class="border-t border-base-300">
-      <div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-sm text-base-content/60 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>Jev is almost free to run. Almost.</p>
-        <%= coffee_link "Chip in for tokens",
-              class: "inline-flex items-center gap-1.5 self-start rounded-field font-medium text-base-content/70 underline-offset-4 transition-colors duration-150 hover:text-base-content hover:underline" %>
-      </div>
-    </footer>
+      <footer class="border-t border-base-300">
+        <div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-sm text-base-content/60 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p>Jev is almost free to run. Almost.</p>
+          <%= coffee_link "Chip in for tokens",
+                class: "inline-flex items-center gap-1.5 self-start rounded-field font-medium text-base-content/70 underline-offset-4 transition-colors duration-150 hover:text-base-content hover:underline" %>
+        </div>
+      </footer>
+    </div>
   </body>
 </html>

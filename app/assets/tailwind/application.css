@@ -109,11 +109,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Never scroll sideways: the swinging tag and falling strips can poke past the screen edge
-     mid-animation (Safari counts that). clip, unlike hidden, keeps position: sticky working. */
-  html, body {
-    overflow-x: clip;
-  }
 
   body {
     min-height: 100dvh;
@@ -160,7 +155,7 @@
 }
 
 @media (max-width: 47.99rem) {
-  .triage-tag { --tag-width: 15rem; }
+  .triage-tag { --tag-width: 15rem; --settle-from: -7deg; }
 }
 
 /* Cord: the back strand sits behind the card, the knot and front strand in front of it. */
@@ -309,6 +304,12 @@
   animation: tag-settle 1.7s cubic-bezier(0.25, 0.9, 0.3, 1) 150ms both;
 }
 
+/* Where a tag hangs. The layout's full-width wrapper clips anything that swings past the screen edge. */
+.triage-tag-stage {
+  display: flex;
+  justify-content: center;
+}
+
 @keyframes tear-off {
   0% { transform: none; opacity: 1; }
   14% { transform: rotate(-2.5deg); }
@@ -325,9 +326,9 @@
   100% { rotate: var(--tag-tilt); }
 }
 @keyframes tag-settle {
-  0% { rotate: -14deg; }
-  35% { rotate: 6deg; }
-  62% { rotate: -5deg; }
+  0% { rotate: var(--settle-from, -14deg); }
+  35% { rotate: calc(var(--settle-from, -14deg) * -0.43); }
+  62% { rotate: calc(var(--settle-from, -14deg) * 0.36); }
   82% { rotate: calc(var(--tag-tilt) + 1deg); }
   100% { rotate: var(--tag-tilt); }
 }

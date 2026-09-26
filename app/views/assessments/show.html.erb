@@ -10,7 +10,7 @@
   <% end %>
 
   <section class="mt-6 grid items-start gap-14 md:grid-cols-[auto_minmax(0,1fr)] md:gap-12 lg:gap-20">
-    <div class="flex justify-center max-md:hidden">
+    <div class="triage-tag-stage max-md:hidden">
       <%= render "shared/triage_tag", verdict: @assessment.choice, tilt: "-4deg",
             fields: { repo: @assessment.repo_full_name, pr: "##{@assessment.pr_number}", title: @assessment.pr_title } %>
     </div>
