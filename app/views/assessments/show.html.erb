@@ -43,15 +43,22 @@
         Assessed <%= time_ago_in_words(@assessment.created_at) %> ago with <%= @assessment.jev_model %>.
       </p>
 
-      <div class="mt-8 flex flex-wrap items-center gap-3">
+      <%# Stacked full-width buttons on phones; inline on wider screens. %>
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <%= link_to @assessment.pr_url, target: "_blank", rel: "noopener", class: "btn btn-primary" do %>
           <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
           Open on GitHub
         <% end %>
-        <%= link_to back_url, class: "btn btn-ghost" do %>
-          Assess another PR <kbd class="kbd kbd-sm">Esc</kbd>
+        <%= link_to back_url, class: "btn max-sm:btn-outline sm:btn-ghost" do %>
+          Assess another PR <kbd class="kbd kbd-sm max-sm:hidden">Esc</kbd>
         <% end %>
       </div>
+
+      <%# Right after the answer, while the user decides what to do next: one quiet line, before the reference material. %>
+      <p class="mt-6 max-w-xl text-sm leading-relaxed text-base-content/55">
+        That verdict cost Jev a few tokens. If it spared you a review, you could spare a
+        <%= coffee_link "coffee", icon: false, class: "font-medium text-base-content/75 underline decoration-base-content/30 underline-offset-4 transition-colors duration-150 hover:text-base-content hover:decoration-current" %>.
+      </p>
 
       <section class="mt-12 max-w-2xl" aria-labelledby="changed-files">
         <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-base-300 pb-2">
@@ -86,11 +93,6 @@
           <p class="mt-4 text-sm text-base-content/60">This diff is large, so Jev read the first 100 KB of it plus the full file list.</p>
         <% end %>
       </section>
-
-      <p class="mt-12 max-w-xl border-t border-dashed border-base-300 pt-5 text-sm leading-relaxed text-base-content/60">
-        That verdict cost Jev a few tokens. If it spared you a review, you could spare a
-        <%= coffee_link "coffee", icon: false, class: "font-medium text-base-content/80 underline decoration-base-content/30 underline-offset-4 transition-colors duration-150 hover:text-base-content hover:decoration-current" %>.
-      </p>
     </div>
   </section>
 </div>
