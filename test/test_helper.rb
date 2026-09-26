@@ -22,6 +22,9 @@ end
 
 WebMock.disable_net_connect!(allow_localhost: true)
 
+# CI has no master key, so credentials are empty there. Jev calls are stubbed; any key will do.
+ENV["TYPESAFE_API_KEY"] ||= "test-jev-api-key"
+
 ActiveSupport.on_load(:action_dispatch_integration_test) do
   setup { ActionController::Base.cache_store.clear }
 end

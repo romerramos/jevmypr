@@ -14,7 +14,7 @@ class TriageFlowTest < ApplicationSystemTestCase
     fill_in "Search repositories", with: "web"
     assert_selector "#repositories a[data-picker-item]", count: 1
 
-    click_on "acme/web"
+    find("#repositories a[data-picker-item]", text: "acme/web").click # not the "Pin acme/web" button
     assert_current_path "/repositories/acme/web/pull_requests"
     assert_selector "#pull_request_results button", text: "Fix login redirect"
     assert_selector "#repository_sidebar a[aria-current=page]", text: "acme/web"

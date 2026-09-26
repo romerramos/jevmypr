@@ -48,7 +48,7 @@
         Wider screens: one row. Asking again is visible but deliberate (it uses Jev tokens).
       %>
       <div class="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
-        <%= link_to @assessment.pr_url, target: "_blank", rel: "noopener", class: "btn btn-primary col-span-2" do %>
+        <%= link_to "https://github.com/#{@assessment.repo_full_name}/pull/#{@assessment.pr_number}", target: "_blank", rel: "noopener", class: "btn btn-primary col-span-2" do %>
           <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
           Open on GitHub
         <% end %>
@@ -95,7 +95,7 @@
 
         <% if @assessment.files.size > file_limit %>
           <p class="mt-2 text-sm text-base-content/60">
-            <%= link_to "#{@assessment.files.size - file_limit} more files on GitHub", "#{@assessment.pr_url}/files", class: "link", target: "_blank", rel: "noopener" %>
+            <%= link_to "#{@assessment.files.size - file_limit} more files on GitHub", "https://github.com/#{@assessment.repo_full_name}/pull/#{@assessment.pr_number}/files", class: "link", target: "_blank", rel: "noopener" %>
           </p>
         <% end %>
 
