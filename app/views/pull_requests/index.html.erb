@@ -39,7 +39,7 @@
     </div>
 
     <%= form_with url: pull_requests_path_for(@repo), method: :get, class: "p-3 md:pt-2",
-          data: { turbo_frame: "pull_request_results", turbo_action: "replace", controller: "debounce-search", action: "input->debounce-search#submit turbo:submit-start@document->debounce-search#cancel" } do |form| %>
+          data: { turbo_frame: "pull_request_results", controller: "debounce-search", action: "input->debounce-search#submit turbo:submit-start@document->debounce-search#cancel" } do |form| %>
       <label class="input w-full">
         <%= lucide_icon "search", class: "size-4 opacity-50", "aria-hidden": true %>
         <%= form.search_field :q, value: @query, placeholder: "Search by title, #number or author",

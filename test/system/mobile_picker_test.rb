@@ -22,6 +22,9 @@ class MobilePickerTest < ApplicationSystemTestCase
     assert_selector "#pull_request_results button", text: "Fix login redirect"
     assert_no_selector "#repository_sidebar", visible: true
     assert_operator page.evaluate_script("window.scrollY"), :<, 50
+    # Like a person, don't press back within the same frame the page rendered in: the browser's
+    # queued scroll-to-top event would otherwise be recorded against the list page's history entry.
+    sleep 0.2
 
     page.go_back
     assert_current_path repositories_path

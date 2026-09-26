@@ -22,7 +22,7 @@ class TriageFlowTest < ApplicationSystemTestCase
 
     fill_in "Search pull requests", with: "bump"
     assert_no_selector "#pull_request_results button", text: "Fix login redirect"
-    assert_current_path "/repositories/acme/web/pull_requests?q=bump"
+    assert_current_path "/repositories/acme/web/pull_requests" # the search stays in the box, not the URL
     fill_in "Search pull requests", with: ""
     assert_selector "#pull_request_results button", text: "Fix login redirect"
     click_on "Fix login redirect"
