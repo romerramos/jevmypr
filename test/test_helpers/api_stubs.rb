@@ -14,17 +14,17 @@ module ApiStubs
     stub_request(:post, "#{GITHUB}/graphql").to_return(json_response({ data: { repository: { pullRequests: { nodes: nodes } } } }))
   end
 
-  def pull_request_node(number:, title:, author: "ana", draft: false)
+  def pull_request_node(number:, title:, author: "ana", draft: false, head_sha: "sha-#{number}")
     { number: number, title: title, body: "", url: "https://github.com/acme/web/pull/#{number}", isDraft: draft,
-      updatedAt: 1.hour.ago.iso8601, additions: 12, deletions: 3, changedFiles: 1, baseRefName: "main", headRefName: "topic",
+      updatedAt: 1.hour.ago.iso8601, additions: 12, deletions: 3, changedFiles: 1, baseRefName: "main", headRefName: "topic", headRefOid: head_sha,
       author: { login: author, avatarUrl: "https://avatars.example/#{author}" } }
   end
 
-  def stub_github_pull_request(repo: "acme/web", number: 7, title: "Fix login redirect")
+  def stub_github_pull_request(repo: "acme/web", number: 7, title: "Fix login redirect", head_sha: "sha-#{number}")
     stub_request(:get, "#{GITHUB}/repos/#{repo}/pulls/#{number}")
       .with(headers: { "Accept" => "application/vnd.github+json" })
       .to_return(json_response({ number: number, title: title, body: "", html_url: "https://github.com/#{repo}/pull/#{number}", draft: false,
-                                 user: { login: "ana", avatar_url: nil }, base: { ref: "main" }, head: { ref: "topic" },
+                                 user: { login: "ana", avatar_url: nil }, base: { ref: "main" }, head: { ref: "topic", sha: head_sha },
                                  additions: 12, deletions: 3, changed_files: 1, updated_at: 1.hour.ago.iso8601 }))
     stub_request(:get, "#{GITHUB}/repos/#{repo}/pulls/#{number}/files").with(query: hash_including({}))
       .to_return(json_response([ { filename: "app/controllers/sessions_controller.rb", status: "modified", additions: 12, deletions: 3 } ]))

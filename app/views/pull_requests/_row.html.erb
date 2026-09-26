@@ -1,0 +1,50 @@
+<%#
+  One open pull request. A verdict for the same commit opens the saved verdict (no Jev tokens);
+  otherwise the row asks Jev, as "Ask again" when the PR changed since its last verdict.
+  Locals: pr, repo, previous (latest PrAssessment for this PR, or nil).
+%>
+<% current = previous&.current_for?(pr) %>
+<% row_class = "flex w-full cursor-pointer items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors duration-150 hover:bg-base-200 focus-visible:bg-base-200" %>
+<% content = capture do %>
+  <span class="avatar shrink-0">
+    <span class="block size-8 overflow-hidden rounded-full bg-base-300">
+      <% if pr.author_avatar_url %><%= image_tag pr.author_avatar_url, alt: "", loading: "lazy" %><% end %>
+    </span>
+  </span>
+
+  <span class="min-w-0 flex-1">
+    <span class="block truncate font-medium"><%= pr.title %></span>
+    <span class="flex flex-wrap items-center gap-x-3 text-sm text-base-content/60">
+      <span class="tabular-nums">#<%= pr.number %></span>
+      <span><%= pr.author_login || "ghost" %>, <%= time_tag pr.updated_at, short_time_ago(pr.updated_at), title: "Updated #{l(pr.updated_at, format: :long)}" %></span>
+      <% if pr.draft %><span class="badge badge-ghost badge-sm">Draft</span><% end %>
+      <% if previous %>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="status <%= previous.verdict[:status_class] %>" aria-hidden="true"></span>
+          Tagged <%= previous.verdict[:label].downcase %><%= ", changed since" unless current %>
+        </span>
+      <% end %>
+    </span>
+  </span>
+
+  <span class="hidden shrink-0 text-sm tabular-nums sm:inline">
+    <span class="text-success">+<%= number_with_delimiter(pr.additions) %></span>
+    <span class="text-error">−<%= number_with_delimiter(pr.deletions) %></span>
+  </span>
+
+  <span class="shrink-0 text-right text-sm font-semibold sm:w-28">
+    <span class="hidden sm:inline group-aria-busy:hidden"><%= current ? "View verdict" : (previous ? "Ask again" : "Ask Jev") %></span>
+    <%= lucide_icon "chevron-right", class: "size-4 opacity-50 sm:hidden group-aria-busy:hidden", "aria-hidden": true %>
+    <span class="hidden items-center justify-end gap-2 group-aria-busy:inline-flex">
+      <span class="loading loading-spinner loading-xs" aria-hidden="true"></span> Asking Jev
+    </span>
+  </span>
+<% end %>
+
+<% if current %>
+  <%= link_to content, assessment_path(previous), class: row_class, data: { turbo_frame: "_top", picker_item: true } %>
+<% else %>
+  <%= form_with url: assessments_path_for(repo, pr.number), class: "ask-jev group", data: { turbo_frame: "_top" } do %>
+    <button type="submit" data-picker-item class="<%= row_class %>"><%= content %></button>
+  <% end %>
+<% end %>

@@ -43,6 +43,7 @@ class PrAssessment < ApplicationRecord
       pr_title: pull_request.title,
       pr_url: pull_request.html_url,
       pr_author: pull_request.author_login,
+      head_sha: pull_request.head_sha,
       additions: pull_request.additions.to_i,
       deletions: pull_request.deletions.to_i,
       changed_files: pull_request.changed_files.to_i,
@@ -57,6 +58,12 @@ class PrAssessment < ApplicationRecord
 
   def verdict
     VERDICTS.fetch(choice)
+  end
+
+  # Whether this verdict was given for the pull request's current code. Verdicts saved before
+  # head SHAs were recorded count as current: re-asking costs tokens, so it stays an explicit choice.
+  def current_for?(pull_request)
+    head_sha.blank? || head_sha == pull_request.head_sha
   end
 
   # Probabilities in a fixed order (human, LLM, none) so the rows line up with the tag strips.

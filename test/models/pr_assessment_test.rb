@@ -32,4 +32,12 @@ class PrAssessmentTest < ActiveSupport::TestCase
     assert_empty user.pr_assessments.search("Fix_login").to_a # "_" is literal, not "any character"
     assert_equal 2, user.pr_assessments.search("").count
   end
+
+  test "a verdict is current for the commit it was given on (older verdicts without a SHA count as current)" do
+    pr = Data.define(:head_sha).new(head_sha: "abc")
+
+    assert PrAssessment.new(head_sha: "abc").current_for?(pr)
+    assert_not PrAssessment.new(head_sha: "old").current_for?(pr)
+    assert PrAssessment.new(head_sha: nil).current_for?(pr)
+  end
 end

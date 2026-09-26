@@ -9,7 +9,7 @@ module Github
 
     Repository = Data.define(:full_name, :name, :owner, :private, :description, :pushed_at)
     PullRequest = Data.define(:number, :title, :body, :html_url, :draft, :author_login, :author_avatar_url,
-                              :base_ref, :head_ref, :additions, :deletions, :changed_files, :updated_at)
+                              :base_ref, :head_ref, :head_sha, :additions, :deletions, :changed_files, :updated_at)
     FileChange = Data.define(:filename, :status, :additions, :deletions)
 
     API_URL = "https://api.github.com"
@@ -22,7 +22,7 @@ module Github
         repository(owner: $owner, name: $name) {
           pullRequests(states: OPEN, first: 100, orderBy: { field: UPDATED_AT, direction: DESC }) {
             nodes {
-              number title body url isDraft updatedAt additions deletions changedFiles baseRefName headRefName
+              number title body url isDraft updatedAt additions deletions changedFiles baseRefName headRefName headRefOid
               author { login avatarUrl }
             }
           }
@@ -67,7 +67,7 @@ module Github
       pulls = data.dig("repository", "pullRequests", "nodes").map do |pr|
         PullRequest.new(number: pr["number"], title: pr["title"], body: pr["body"], html_url: pr["url"], draft: pr["isDraft"],
                         author_login: pr.dig("author", "login"), author_avatar_url: pr.dig("author", "avatarUrl"),
-                        base_ref: pr["baseRefName"], head_ref: pr["headRefName"], additions: pr["additions"],
+                        base_ref: pr["baseRefName"], head_ref: pr["headRefName"], head_sha: pr["headRefOid"], additions: pr["additions"],
                         deletions: pr["deletions"], changed_files: pr["changedFiles"], updated_at: time(pr["updatedAt"]))
       end
 
@@ -79,7 +79,7 @@ module Github
 
       PullRequest.new(number: pr["number"], title: pr["title"], body: pr["body"], html_url: pr["html_url"], draft: pr["draft"],
                       author_login: pr.dig("user", "login"), author_avatar_url: pr.dig("user", "avatar_url"),
-                      base_ref: pr.dig("base", "ref"), head_ref: pr.dig("head", "ref"), additions: pr["additions"],
+                      base_ref: pr.dig("base", "ref"), head_ref: pr.dig("head", "ref"), head_sha: pr.dig("head", "sha"), additions: pr["additions"],
                       deletions: pr["deletions"], changed_files: pr["changed_files"], updated_at: time(pr["updated_at"]))
     end
 

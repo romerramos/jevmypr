@@ -24,7 +24,7 @@ class Github::ClientTest < ActiveSupport::TestCase
       .to_return(json_response({ data: { repository: { pullRequests: { nodes: [
         { number: 7, title: "Fix login redirect", body: "", url: "https://github.com/acme/web/pull/7", isDraft: false,
           updatedAt: "2026-09-20T10:00:00Z", additions: 12, deletions: 3, changedFiles: 2,
-          baseRefName: "main", headRefName: "fix-login", author: { login: "ana", avatarUrl: "https://a/ana" } },
+          baseRefName: "main", headRefName: "fix-login", headRefOid: "f00d", author: { login: "ana", avatarUrl: "https://a/ana" } },
         { number: 9, title: "Bump rails", body: "", url: "https://github.com/acme/web/pull/9", isDraft: true,
           updatedAt: "2026-09-21T10:00:00Z", additions: 1, deletions: 1, changedFiles: 1,
           baseRefName: "main", headRefName: "bump", author: nil }
@@ -33,6 +33,7 @@ class Github::ClientTest < ActiveSupport::TestCase
     pulls = @client.pull_requests("acme/web")
     assert_equal [ 7, 9 ], pulls.map(&:number)
     assert_equal [ 12, 3 ], [ pulls.first.additions, pulls.first.deletions ]
+    assert_equal "f00d", pulls.first.head_sha
     assert_nil pulls.last.author_login
 
     assert_equal [ 9 ], @client.pull_requests("acme/web", query: "#9").map(&:number)
@@ -51,7 +52,7 @@ class Github::ClientTest < ActiveSupport::TestCase
       .with(headers: { "Accept" => "application/vnd.github+json" })
       .to_return(json_response({ number: 7, title: "Fix login redirect", body: "Details", html_url: "https://github.com/acme/web/pull/7",
                                  draft: false, user: { login: "ana", avatar_url: "https://a/ana" }, base: { ref: "main" },
-                                 head: { ref: "fix-login" }, additions: 12, deletions: 3, changed_files: 2, updated_at: "2026-09-20T10:00:00Z" }))
+                                 head: { ref: "fix-login", sha: "f00d" }, additions: 12, deletions: 3, changed_files: 2, updated_at: "2026-09-20T10:00:00Z" }))
     stub_request(:get, "#{API}/repos/acme/web/pulls/7/files").with(query: hash_including({}))
       .to_return(json_response([ { filename: "app/login.rb", status: "modified", additions: 12, deletions: 3 } ]))
     stub_request(:get, "#{API}/repos/acme/web/pulls/7")
@@ -59,7 +60,7 @@ class Github::ClientTest < ActiveSupport::TestCase
       .to_return(status: 200, body: "diff --git a/app/login.rb b/app/login.rb\n", headers: { "Content-Type" => "application/vnd.github.diff; charset=utf-8" })
 
     pr = @client.pull_request("acme/web", "7")
-    assert_equal [ "ana", "main", "fix-login" ], [ pr.author_login, pr.base_ref, pr.head_ref ]
+    assert_equal [ "ana", "main", "fix-login", "f00d" ], [ pr.author_login, pr.base_ref, pr.head_ref, pr.head_sha ]
     assert_equal [ "app/login.rb" ], @client.pull_request_files("acme/web", 7).map(&:filename)
     assert_match "diff --git", @client.pull_request_diff("acme/web", 7)
   end

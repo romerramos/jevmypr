@@ -33,7 +33,11 @@ class TriageFlowTest < ApplicationSystemTestCase
 
     find("body").send_keys(:escape)
     assert_current_path "/repositories/acme/web/pull_requests"
-    assert_selector "#pull_request_results button", text: /Tagged llm review/
+
+    # Same commit as before: the row reopens the saved verdict instead of asking Jev again.
+    click_on "Fix login redirect"
+    assert_selector "h1", text: "An LLM review is enough."
+    assert_requested :post, Jev::Client::URL, times: 1
   end
 
   test "slash focuses the repository search" do

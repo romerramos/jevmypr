@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_25_235324) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_26_011629) do
   create_table "pinned_repositories", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "full_name", null: false
@@ -38,6 +38,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_235324) do
     t.boolean "diff_truncated", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "head_sha"
     t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_7bb4f04b72"
     t.index ["user_id"], name: "index_pr_assessments_on_user_id"
   end

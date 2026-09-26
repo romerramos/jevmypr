@@ -48,14 +48,19 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
     assert_select "h2 .font-semibold", "acme.github.io"
   end
 
-  test "shows the previous verdict for pull requests already assessed" do
-    users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 7, pr_title: "Fix login redirect", pr_url: "https://github.com/acme/web/pull/7", choice: "llm_enough")
-    stub_github_pull_requests([ pull_request_node(number: 7, title: "Fix login redirect") ])
+  test "a verdict for the same commit is reopened for free instead of asking Jev again" do
+    current = assess(7, choice: "llm_enough", head_sha: "sha-7")
+    assess(8, choice: "yes", head_sha: "old-sha")
+    legacy = assess(9, choice: "no", head_sha: nil)
+    stub_github_pull_requests([ 7, 8, 9, 10 ].map { |n| pull_request_node(number: n, title: "PR #{n}", head_sha: "sha-#{n}") })
 
     get repository_pull_requests_path(owner: "acme", repo: "web")
 
-    assert_select "button", text: /Tagged llm review/
-    assert_select "button", text: /Ask again/
+    assert_select "a[href=?]", assessment_path(current), text: /PR 7.*Tagged llm review.*View verdict/m
+    assert_select "a[href=?]", assessment_path(legacy), text: /View verdict/
+    assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/8/assessments", text: /Tagged human review, changed since.*Ask again/m
+    assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/10/assessments", text: /Ask Jev/
+    assert_select "form.ask-jev", 2
   end
 
   test "search renders into the results frame" do
@@ -73,4 +78,10 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
 
     assert_select "turbo-frame#pull_request_results [role=alert]", text: /GitHub returned HTTP 500/
   end
+
+  private
+    def assess(number, choice:, head_sha:)
+      users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: number, pr_title: "PR #{number}",
+                                         pr_url: "https://github.com/acme/web/pull/#{number}", choice: choice, head_sha: head_sha)
+    end
 end

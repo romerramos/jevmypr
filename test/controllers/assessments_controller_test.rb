@@ -15,6 +15,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
 
     assessment = PrAssessment.last
     assert_redirected_to assessment_path(assessment)
+    assert_equal "sha-7", assessment.head_sha
     assert_equal [ "acme/web", 7, "yes", "jev-1.13.0" ], [ assessment.repo_full_name, assessment.pr_number, assessment.choice, assessment.jev_model ]
     assert_equal 0.7, assessment.probabilities["yes"]
     assert_equal "app/controllers/sessions_controller.rb", assessment.files.first["filename"]
@@ -26,6 +27,8 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".verdict-badge.verdict-badge--yes", text: /Human review/
     assert_select "a[href=?]", "https://github.com/acme/web/pull/7", text: /Open on GitHub/
     assert_select "progress", 3
+    assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/7/assessments", text: /Ask again/
+    assert_select ".ask-jev-overlay"
   end
 
   test "a Jev failure returns to the picker with the reason" do

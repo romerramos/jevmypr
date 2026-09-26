@@ -10,7 +10,7 @@ class PrReviewDeciderTest < ActiveSupport::TestCase
 
     def pull_request(full_name, number)
       Github::Client::PullRequest.new(number: number, title: "Fix README typo", body: "Small fix", html_url: "https://github.com/#{full_name}/pull/#{number}",
-                                      draft: false, author_login: "ana", author_avatar_url: nil, base_ref: "main", head_ref: "typo",
+                                      draft: false, author_login: "ana", author_avatar_url: nil, base_ref: "main", head_ref: "typo", head_sha: "abc123",
                                       additions: 1, deletions: 1, changed_files: 1, updated_at: Time.current)
     end
 

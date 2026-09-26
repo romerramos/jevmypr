@@ -38,10 +38,18 @@
         <% end %>
       </dl>
 
-      <p class="mt-4 text-sm text-base-content/60">
-        <% if @assessment.confidence %>Jev is <%= number_to_percentage(@assessment.confidence * 100, precision: 0) %> confident in this call.<% end %>
-        Assessed <%= time_ago_in_words(@assessment.created_at) %> ago with <%= @assessment.jev_model %>.
-      </p>
+      <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-base-content/60">
+        <p>
+          <% if @assessment.confidence %>Jev is <%= number_to_percentage(@assessment.confidence * 100, precision: 0) %> confident in this call.<% end %>
+          Assessed <%= time_ago_in_words(@assessment.created_at) %> ago with <%= @assessment.jev_model %>.
+        </p>
+        <%# Saved verdicts are free to reread; asking again is an explicit choice (it costs Jev tokens). %>
+        <%= form_with url: assessments_path_for(@assessment.repo_full_name, @assessment.pr_number), class: "ask-jev", data: { turbo_frame: "_top" } do %>
+          <button type="submit" class="btn btn-ghost btn-xs -mx-2 gap-1 font-medium text-base-content/70" title="Ask Jev for a fresh verdict (uses Jev tokens)">
+            <%= lucide_icon "refresh-cw", class: "size-3.5", "aria-hidden": true %> Ask again
+          </button>
+        <% end %>
+      </div>
 
       <%# Stacked full-width buttons on phones; inline on wider screens. %>
       <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -96,3 +104,5 @@
     </div>
   </section>
 </div>
+
+<%= render "shared/ask_jev_overlay" %>
