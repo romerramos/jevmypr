@@ -38,6 +38,13 @@ class TriageFlowTest < ApplicationSystemTestCase
     click_on "Fix login redirect"
     assert_selector "h1", text: "An LLM review is enough."
     assert_requested :post, Jev::Client::URL, times: 1
+
+    # Asking again is an explicit choice on the verdict page.
+    first = current_path
+    click_on "Ask Jev again"
+    assert_no_current_path first
+    assert_selector "h1", text: "An LLM review is enough."
+    assert_requested :post, Jev::Client::URL, times: 2
   end
 
   test "slash focuses the repository search" do

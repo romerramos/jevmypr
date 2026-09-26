@@ -27,7 +27,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".verdict-badge.verdict-badge--yes", text: /Human review/
     assert_select "a[href=?]", "https://github.com/acme/web/pull/7", text: /Open on GitHub/
     assert_select "progress", 3
-    assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/7/assessments", text: /Ask again/
+    assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/7/assessments", text: /Ask\s*Jev\s*again/
     assert_select ".ask-jev-overlay"
   end
 
