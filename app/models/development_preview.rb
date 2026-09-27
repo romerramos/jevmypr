@@ -1,15 +1,17 @@
-# Sample GitHub and Jev data so the app can be tried in development with no OAuth app
-# and no TypeSafe key. Off unless RAILS_ENV=development and JEV_PREVIEW=1.
-#
-# The data is local. Nothing is sent to GitHub or Jev, and the path does not exist
-# in production.
+# Sample GitHub and Jev data so the app can be tried with no OAuth app and no TypeSafe key.
+# On in development when neither credentials nor env vars can sign you in, or when
+# JEV_PREVIEW=1 is set. Never on in production. The data is local: nothing is sent
+# to GitHub or Jev.
 module DevelopmentPreview
   UID = "preview"
   TOKEN = "preview"
   MODEL = "preview"
 
   def self.enabled?
-    Rails.env.development? && ENV["JEV_PREVIEW"] == "1"
+    return false unless Rails.env.development?
+    return true if ENV["JEV_PREVIEW"] == "1"
+
+    AppSecrets[:github_client_id].blank? || AppSecrets[:github_client_secret].blank?
   end
 
   def self.user

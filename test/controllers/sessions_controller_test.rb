@@ -56,7 +56,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "gho_rotated", user.github_token
   end
 
-  test "preview sign-in is not available outside development" do
+  test "preview sign-in is not available outside development, even with no credentials" do
     assert_not DevelopmentPreview.enabled?
 
     post preview_session_path

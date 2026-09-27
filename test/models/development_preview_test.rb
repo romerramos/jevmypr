@@ -1,7 +1,7 @@
 require "test_helper"
 
 class DevelopmentPreviewTest < ActiveSupport::TestCase
-  test "is off unless development asks for it" do
+  test "is off outside development" do
     assert_not DevelopmentPreview.enabled?
   end
 

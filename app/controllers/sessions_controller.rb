@@ -6,8 +6,8 @@ class SessionsController < ApplicationController
     redirect_to repositories_path if authenticated?
   end
 
-  # Local sample sign-in. DevelopmentPreview.enabled? is false outside development
-  # with JEV_PREVIEW=1, so this route is a 404 everywhere else.
+  # Local sample sign-in. DevelopmentPreview.enabled? is false in production and
+  # whenever GitHub credentials are present, so this route is a 404 there.
   def preview
     raise ActionController::RoutingError, "Not Found" unless DevelopmentPreview.enabled?
 
