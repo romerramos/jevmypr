@@ -50,6 +50,6 @@ class AssessmentsController < ApplicationController
 
   private
     def jev
-      DevelopmentPreview.enabled? && Current.user.github_uid == DevelopmentPreview::UID ? Jev::PreviewClient.new : Jev::Client.new
+      previewing? ? Jev::PreviewClient.new : Jev::Client.new
     end
 end
