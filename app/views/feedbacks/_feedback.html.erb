@@ -1,0 +1,40 @@
+<%# Your vote on this verdict. Every form here swaps this frame only. %>
+<%= turbo_frame_tag "feedback", class: "mt-10 block max-w-xl" do %>
+  <div class="rounded-box border border-base-300 p-4 sm:p-5">
+    <% if assessment.agreed? %>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="flex items-center gap-2 text-sm">
+          <%= lucide_icon "thumbs-up", class: "size-4 text-success", "aria-hidden": true %>
+          You agreed with Jev.
+        </p>
+        <%= button_to "Change vote", assessment_feedback_path(assessment), method: :delete, class: "btn btn-ghost btn-sm" %>
+      </div>
+    <% elsif assessment.disagreed? %>
+      <% vote = PrAssessment::VERDICTS.fetch(assessment.feedback_choice) %>
+      <p class="flex items-center gap-2 text-sm">
+        <%= lucide_icon "thumbs-down", class: "size-4 text-error", "aria-hidden": true %>
+        <span>You said this needed <strong><%= vote[:needs] %></strong>.</span>
+      </p>
+      <% if assessment.feedback_reason.present? %>
+        <blockquote class="mt-3 border-l-2 border-base-300 pl-3 text-sm whitespace-pre-line text-base-content/75"><%= assessment.feedback_reason %></blockquote>
+      <% end %>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <%= link_to "Edit", edit_assessment_feedback_path(assessment), class: "btn btn-sm" %>
+        <%= button_to "Clear vote", assessment_feedback_path(assessment), method: :delete, class: "btn btn-ghost btn-sm" %>
+      </div>
+    <% else %>
+      <h2 class="font-display font-bold">Did Jev get this right?</h2>
+      <p class="mt-1 text-sm text-base-content/65">Your vote shows how well verdicts hold up. It's kept with this verdict and only you see it.</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <%= button_to assessment_feedback_path(assessment), method: :patch, params: { feedback: { choice: assessment.choice } }, class: "btn btn-sm" do %>
+          <%= lucide_icon "thumbs-up", class: "size-4", "aria-hidden": true %>
+          Agree
+        <% end %>
+        <%= link_to edit_assessment_feedback_path(assessment), class: "btn btn-sm" do %>
+          <%= lucide_icon "thumbs-down", class: "size-4", "aria-hidden": true %>
+          Disagree
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

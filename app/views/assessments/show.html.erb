@@ -63,6 +63,8 @@
         <% end %>
       </div>
 
+      <%= render "feedbacks/feedback", assessment: @assessment %>
+
       <section class="mt-12 max-w-2xl" aria-labelledby="changed-files">
         <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-base-300 pb-2">
           <h2 id="changed-files" class="font-display text-lg font-bold"><%= pluralize(@assessment.changed_files, "changed file") %></h2>

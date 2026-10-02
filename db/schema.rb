@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_26_190126) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_02_154251) do
   create_table "oversized_pull_requests", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "repo_full_name", null: false
@@ -52,6 +52,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_26_190126) do
     t.string "head_sha"
     t.integer "input_tokens", default: 0, null: false
     t.integer "output_tokens", default: 0, null: false
+    t.string "feedback_choice"
+    t.text "feedback_reason"
+    t.datetime "feedback_at"
     t.index ["created_at"], name: "index_pr_assessments_on_created_at"
     t.index ["user_id", "created_at"], name: "index_pr_assessments_on_user_id_and_created_at"
     t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_7bb4f04b72"

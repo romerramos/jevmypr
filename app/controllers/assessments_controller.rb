@@ -12,6 +12,7 @@ class AssessmentsController < ApplicationController
     @query = params[:q].to_s.strip
     @verdict = params[:verdict].presence_in(PrAssessment::VERDICTS.keys)
     @counts = Current.user.pr_assessments.group(:choice).count
+    @feedback = Current.user.pr_assessments.feedback_summary
 
     scope = Current.user.pr_assessments.recent.search(@query)
     scope = scope.where(choice: @verdict) if @verdict

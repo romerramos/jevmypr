@@ -54,11 +54,11 @@ Jev my PR only uses your data to answer the question above.
   (whole file patches, up to 100 KB).
 - **Stored:** your GitHub id, login, name, avatar URL and account creation date; your GitHub token, **encrypted**
   with Active Record encryption; sign-in sessions (IP address and browser); your verdicts (PR title, URL, file list,
-  result and token counts, and each file's verdict), pinned repositories, and which pull requests were too big
-  for Jev to read.
+  result and token counts, and each file's verdict), your vote on a verdict if you leave one (agree, or what it
+  should have been and an optional reason), pinned repositories, and which pull requests were too big for Jev to read.
 - **Not done:** no analytics, no trackers, no third-party scripts or fonts, nothing sold or shared. The only other
   thing your browser loads is GitHub avatars, from GitHub.
-- **Delete it:** *account menu → Delete my data* removes your account, token, verdicts, pins and too-big marks. You can also
+- **Delete it:** *account menu → Delete my data* removes your account, token, verdicts and votes, pins and too-big marks. You can also
   revoke the app under GitHub → Settings → Applications.
 
 ## Fair use limits

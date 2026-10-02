@@ -49,4 +49,60 @@ class PrAssessmentTest < ActiveSupport::TestCase
     assert_equal %w[auth.rb pay.rb a_test.rb b_test.rb docs.md logo.png],
                  PrAssessment.new(files: files).files_by_verdict.map { |f| f["filename"] }
   end
+
+  test "agreeing records Jev's own verdict and drops any reason" do
+    assessment = create_assessment(choice: "no")
+
+    assessment.record_feedback!(choice: "no", reason: "Looks fine")
+
+    assert assessment.agreed?
+    assert_nil assessment.feedback_reason
+    assert assessment.feedback_at
+  end
+
+  test "disagreeing records the verdict it should have been and an optional reason" do
+    assessment = create_assessment(choice: "no")
+
+    assessment.record_feedback!(choice: "yes", reason: "  It touches the payments webhook.  ")
+
+    assert assessment.disagreed?
+    assert_equal [ "yes", "It touches the payments webhook." ], [ assessment.feedback_choice, assessment.feedback_reason ]
+  end
+
+  test "feedback only accepts Jev's three options and a short reason" do
+    assessment = create_assessment(choice: "no")
+
+    assert_raises(ActiveRecord::RecordInvalid) { assessment.record_feedback!(choice: "maybe") }
+    assert_raises(ActiveRecord::RecordInvalid) { assessment.record_feedback!(choice: "yes", reason: "x" * 1_001) }
+  end
+
+  test "clearing feedback removes the vote" do
+    assessment = create_assessment(choice: "no")
+    assessment.record_feedback!(choice: "yes", reason: "Risky")
+
+    assessment.clear_feedback!
+
+    assert_not assessment.reload.feedback?
+    assert_equal [ nil, nil, nil ], [ assessment.feedback_choice, assessment.feedback_reason, assessment.feedback_at ]
+  end
+
+  test "the feedback summary counts agreement and which way Jev was wrong" do
+    create_assessment(choice: "no").record_feedback!(choice: "no")
+    create_assessment(choice: "llm_enough").record_feedback!(choice: "llm_enough")
+    create_assessment(choice: "no").record_feedback!(choice: "yes")
+    create_assessment(choice: "llm_enough").record_feedback!(choice: "yes")
+    create_assessment(choice: "yes").record_feedback!(choice: "no")
+    create_assessment(choice: "yes")
+
+    summary = users(:one).pr_assessments.feedback_summary
+
+    assert_equal [ 5, 2, 2, 1 ], [ summary.rated, summary.agreed, summary.needed_more, summary.needed_less ]
+  end
+
+  private
+    def create_assessment(choice:)
+      @number = @number.to_i + 1
+      users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: @number, pr_title: "PR #{@number}",
+                                         pr_url: "https://github.com/acme/web/pull/#{@number}", choice: choice)
+    end
 end

@@ -8,6 +8,14 @@
   <%= link_to "Pick a pull request", repositories_path, class: "btn btn-primary mt-6" %>
 <% else %>
   <p class="mt-2 text-base-content/70">Every pull request you asked Jev about, newest first.</p>
+  <% if @feedback.rated.positive? %>
+    <p class="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-base-content/70">
+      <%= lucide_icon "thumbs-up", class: "size-4 opacity-70", "aria-hidden": true %>
+      <span>You agreed with <%= @feedback.agreed %> of <%= pluralize(@feedback.rated, "verdict") %> you rated.</span>
+      <% if @feedback.needed_more.positive? %><span><%= @feedback.needed_more %> needed more review than Jev said.</span><% end %>
+      <% if @feedback.needed_less.positive? %><span><%= @feedback.needed_less %> needed less.</span><% end %>
+    </p>
+  <% end %>
 
   <%# Search and verdict filter are one form; results reload in the frame below. %>
   <%= form_with url: assessments_path, method: :get, class: "mt-6 max-w-3xl space-y-3",
