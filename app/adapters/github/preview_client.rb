@@ -19,10 +19,6 @@ module Github
       DevelopmentPreview.files_for(number)
     end
 
-    def pull_request_diff(_full_name, number)
-      DevelopmentPreview.diff_for(number)
-    end
-
     private
       def known!(full_name)
         return if DevelopmentPreview.repositories.any? { |repo| repo.full_name == full_name }

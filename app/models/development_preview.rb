@@ -7,6 +7,18 @@ module DevelopmentPreview
   TOKEN = "preview"
   MODEL = "preview"
   REQUIRED_SECRETS = %i[github_client_id github_client_secret typesafe_api_key].freeze
+  ANSWERS = {
+    "yes" => { "choice" => "yes", "probabilities" => { "yes" => 0.81, "llm_enough" => 0.14, "no" => 0.05 }, "confidence" => 0.72 },
+    "llm_enough" => { "choice" => "llm_enough", "probabilities" => { "yes" => 0.22, "llm_enough" => 0.68, "no" => 0.10 }, "confidence" => 0.61 },
+    "no" => { "choice" => "no", "probabilities" => { "yes" => 0.04, "llm_enough" => 0.11, "no" => 0.85 }, "confidence" => 0.8 }
+  }.freeze
+  PULL_REQUEST_CHOICES = { 42 => "yes", 18 => "llm_enough", 7 => "no" }.freeze
+  FILE_CHOICES = {
+    "app/controllers/sessions_controller.rb" => "yes",
+    "config/initializers/omniauth.rb" => "yes",
+    "db/migrate/20260901120000_add_refund_reason.rb" => "yes",
+    "README.md" => "no"
+  }.freeze
 
   def self.enabled?
     return false unless Rails.env.development?
@@ -49,61 +61,38 @@ module DevelopmentPreview
     case number.to_i
     when 42
       [
-        file("app/controllers/sessions_controller.rb", "modified", 18, 4),
-        file("app/models/user.rb", "modified", 6, 1),
-        file("config/initializers/omniauth.rb", "added", 9, 0)
+        file("app/controllers/sessions_controller.rb", "modified", "@@ -8,3 +8,6 @@\n   def create\n-    head :ok\n+    user = User.from_omniauth(request.env[\"omniauth.auth\"])\n+    start_new_session_for user\n+    redirect_to root_path\n   end"),
+        file("app/models/user.rb", "modified", "@@ -1,2 +1,3 @@\n class User < ApplicationRecord\n+  encrypts :github_token\n end"),
+        file("config/initializers/omniauth.rb", "added", "@@ -0,0 +1 @@\n+provider :github, id, secret, scope: \"read:user,repo\"")
       ]
     when 18
       [
-        file("app/services/refunds.rb", "modified", 40, 12),
-        file("db/migrate/20260901120000_add_refund_reason.rb", "added", 12, 0)
+        file("app/services/refunds.rb", "modified", "@@ -12 +12,2 @@\n-    refund.update!(amount: amount)\n+    refund.update!(amount: amount, reason: reason)"),
+        file("db/migrate/20260901120000_add_refund_reason.rb", "added", "@@ -0,0 +1 @@\n+add_column :refunds, :reason, :string")
       ]
     else
-      [ file("README.md", "modified", 2, 1) ]
+      [
+        file("README.md", "modified", "@@ -3 +3 @@\n-Read teh guide.\n+Read the guide."),
+        file("public/logo.png", "modified", nil)
+      ]
     end
   end
 
-  def self.diff_for(number)
-    case number.to_i
-    when 42
-      <<~DIFF
-        diff --git a/config/initializers/omniauth.rb b/config/initializers/omniauth.rb
-        --- /dev/null
-        +++ b/config/initializers/omniauth.rb
-        @@
-        +provider :github, id, secret, scope: "read:user,repo"
-      DIFF
-    when 18
-      <<~DIFF
-        diff --git a/app/services/refunds.rb b/app/services/refunds.rb
-        @@
-        -  refund.amount
-        +  refund.amount_cents
-      DIFF
-    else
-      <<~DIFF
-        diff --git a/README.md b/README.md
-        @@
-        -teh
-        +the
-      DIFF
-    end
-  end
-
-  # A stand-in for Jev. The choice is fixed per pull request so the three tags
-  # are easy to see, and nothing is sent to TypeSafe.
-  def self.jev_response(number)
-    choice, probabilities, confidence = case number.to_i
-    when 42 then [ "yes", { "yes" => 0.81, "llm_enough" => 0.14, "no" => 0.05 }, 0.72 ]
-    when 18 then [ "llm_enough", { "yes" => 0.22, "llm_enough" => 0.68, "no" => 0.10 }, 0.61 ]
-    else [ "no", { "yes" => 0.04, "llm_enough" => 0.11, "no" => 0.85 }, 0.8 ]
+  # A stand-in for Jev. Each sample pull request and file has a fixed verdict so the
+  # three tags are easy to see, and nothing is sent to TypeSafe.
+  def self.jev_response(state:, questions:)
+    pull_request = pull_requests(state[:repository]).find { |pr| pr.title == state[:title] }
+    answers = questions.keys.to_h do |id|
+      choice = if id == PrReviewDecider::QUESTION_ID
+        PULL_REQUEST_CHOICES.fetch(pull_request&.number, "no")
+      else
+        filename = state[:files][id.delete_prefix(PrReviewDecider::FILE_QUESTION_PREFIX).to_i][:filename]
+        FILE_CHOICES.fetch(filename, "llm_enough")
+      end
+      [ id, ANSWERS.fetch(choice) ]
     end
 
-    Jev::Client::Response.new(
-      model: MODEL,
-      answers: { PrReviewDecider::QUESTION_ID => { "choice" => choice, "probabilities" => probabilities, "confidence" => confidence } },
-      usage: { "input_tokens" => 0, "output_tokens" => 0 }
-    )
+    Jev::Client::Response.new(model: MODEL, answers: answers, usage: { "input_tokens" => 0, "output_tokens" => 0 })
   end
 
   def self.repo(full_name, description, private:)
@@ -135,8 +124,11 @@ module DevelopmentPreview
     )
   end
 
-  def self.file(filename, status, additions, deletions)
-    Github::Client::FileChange.new(filename: filename, status: status, additions: additions, deletions: deletions)
+  def self.file(filename, status, patch)
+    lines = patch.to_s.lines
+    Github::Client::FileChange.new(filename: filename, previous_filename: nil, status: status, patch: patch,
+                                   additions: lines.count { |line| line.start_with?("+") },
+                                   deletions: lines.count { |line| line.start_with?("-") })
   end
   private_class_method :repo, :auth_pr, :copy_pr, :refund_pr, :pull, :file
 end
