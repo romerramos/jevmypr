@@ -10,25 +10,35 @@ module Github
     Repository = Data.define(:full_name, :name, :owner, :private, :description, :pushed_at)
     PullRequest = Data.define(:number, :title, :body, :html_url, :draft, :author_login, :author_avatar_url,
                               :base_ref, :head_ref, :head_sha, :additions, :deletions, :changed_files, :updated_at)
-    FileChange = Data.define(:filename, :status, :additions, :deletions)
+    FileChange = Data.define(:filename, :previous_filename, :status, :additions, :deletions, :patch)
 
     API_URL = "https://api.github.com"
     MAX_PAGES = 5
     PER_PAGE = 100
     FULL_NAME = %r{\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z}
 
+    # The 100 most recently updated open PRs, plus, when searching, the PR with that number and
+    # GitHub search results by title and by author, so older PRs can be found too. All in one request.
     OPEN_PULL_REQUESTS_QUERY = <<~GRAPHQL
-      query($owner: String!, $name: String!) {
+      fragment PullRequestFields on PullRequest {
+        number title body url isDraft state updatedAt additions deletions changedFiles baseRefName headRefName headRefOid
+        author { login avatarUrl }
+      }
+
+      query($owner: String!, $name: String!, $byNumber: Boolean!, $number: Int!,
+            $byTitle: Boolean!, $titleSearch: String!, $byAuthor: Boolean!, $authorSearch: String!) {
         repository(owner: $owner, name: $name) {
           pullRequests(states: OPEN, first: 100, orderBy: { field: UPDATED_AT, direction: DESC }) {
-            nodes {
-              number title body url isDraft updatedAt additions deletions changedFiles baseRefName headRefName headRefOid
-              author { login avatarUrl }
-            }
+            nodes { ...PullRequestFields }
           }
+          numbered: pullRequest(number: $number) @include(if: $byNumber) { ...PullRequestFields }
         }
+        byTitle: search(query: $titleSearch, type: ISSUE, first: 50) @include(if: $byTitle) { nodes { ...PullRequestFields } }
+        byAuthor: search(query: $authorSearch, type: ISSUE, first: 50) @include(if: $byAuthor) { nodes { ...PullRequestFields } }
       }
     GRAPHQL
+    MAX_PR_NUMBER = 2**31 - 1 # GraphQL Int
+    GITHUB_LOGIN = /\A[a-z\d](?:[a-z\d-]{0,38})\z/i
 
     def initialize(token)
       raise Unauthorized, "Missing GitHub token. Sign in again." if token.blank?
@@ -49,7 +59,7 @@ module Github
     # Repositories the user can access, most recently pushed first, filtered by name.
     def repositories(query: nil)
       repos = Rails.cache.fetch([ "github/repositories", token_digest ], expires_in: 5.minutes) do
-        paginate("/user/repos", sort: "pushed", affiliation: "owner,collaborator,organization_member").map do |r|
+        paginate("/user/repos", { sort: "pushed", affiliation: "owner,collaborator,organization_member" }).map do |r|
           Repository.new(full_name: r["full_name"], name: r["name"], owner: r.dig("owner", "login"),
                          private: r["private"], description: r["description"], pushed_at: time(r["pushed_at"]))
         end
@@ -59,12 +69,21 @@ module Github
     end
 
     # Open pull requests, most recently updated first, filtered by title, number or author.
+    # Without a query it's the 100 most recently updated; a query also reaches older ones.
     def pull_requests(full_name, query: nil)
       owner, name = split_full_name(full_name)
-      data = graphql(OPEN_PULL_REQUESTS_QUERY, owner: owner, name: name)
+      data = graphql(OPEN_PULL_REQUESTS_QUERY, { owner: owner, name: name, **search_variables(full_name, query) },
+                     missing_ok: [ %w[repository numbered] ])
       raise NotFound, "Repository #{full_name} wasn't found or isn't visible to you." if data["repository"].nil?
 
-      pulls = data.dig("repository", "pullRequests", "nodes").map do |pr|
+      numbered = data.dig("repository", "numbered")
+      # Search results are checked against the repository too, in case GitHub's search strays outside it.
+      found = (Array(data.dig("byTitle", "nodes")) + Array(data.dig("byAuthor", "nodes")))
+        .select { |pr| pr["url"].to_s.start_with?("https://github.com/#{full_name}/pull/") }
+      # Anything not in the recent list is older than all of it, so it goes after, newest first.
+      older = ([ numbered ].select { |pr| pr&.dig("state") == "OPEN" } + found).sort_by { |pr| pr["updatedAt"].to_s }.reverse
+      nodes = data.dig("repository", "pullRequests", "nodes") + older
+      pulls = nodes.uniq { |pr| pr["number"] }.map do |pr|
         PullRequest.new(number: pr["number"], title: pr["title"], body: pr["body"], html_url: pr["url"], draft: pr["isDraft"],
                         author_login: pr.dig("author", "login"), author_avatar_url: pr.dig("author", "avatarUrl"),
                         base_ref: pr["baseRefName"], head_ref: pr["headRefName"], head_sha: pr["headRefOid"], additions: pr["additions"],
@@ -83,15 +102,12 @@ module Github
                       deletions: pr["deletions"], changed_files: pr["changed_files"], updated_at: time(pr["updated_at"]))
     end
 
+    # GitHub lists up to 3,000 files. Binary files and very large files come without a patch.
     def pull_request_files(full_name, number)
-      paginate("#{pull_path(full_name, number)}/files").map do |f|
-        FileChange.new(filename: f["filename"], status: f["status"], additions: f["additions"], deletions: f["deletions"])
+      paginate("#{pull_path(full_name, number)}/files", {}, max_pages: 30).map do |f|
+        FileChange.new(filename: f["filename"], previous_filename: f["previous_filename"], status: f["status"],
+                       additions: f["additions"], deletions: f["deletions"], patch: f["patch"])
       end
-    end
-
-    # Unified diff as text.
-    def pull_request_diff(full_name, number)
-      get(pull_path(full_name, number), headers: { "Accept" => "application/vnd.github.diff" }).body
     end
 
     private
@@ -103,11 +119,11 @@ module Github
         raise Error, "Couldn't reach GitHub (#{e.class.name.demodulize})."
       end
 
-      def paginate(path, params = {})
+      def paginate(path, params = {}, max_pages: MAX_PAGES)
         results = []
         response = get(path, params.merge(per_page: PER_PAGE))
 
-        MAX_PAGES.times do
+        max_pages.times do
           results.concat(response.body)
           next_url = next_page_url(response)
           break unless next_url
@@ -118,11 +134,12 @@ module Github
         results
       end
 
-      def graphql(query, variables)
+      # missing_ok: paths of optional lookups that may not resolve, like a PR number that doesn't exist.
+      def graphql(query, variables, missing_ok: [])
         response = @connection.post("/graphql", { query: query, variables: variables })
         handle_errors!(response)
 
-        errors = response.body["errors"]
+        errors = Array(response.body["errors"]).reject { |e| e["type"] == "NOT_FOUND" && missing_ok.include?(e["path"]) }
         if errors.present?
           raise NotFound, errors.first["message"] if errors.any? { |e| e["type"] == "NOT_FOUND" }
           raise Error, "GitHub GraphQL error: #{errors.map { |e| e["message"] }.to_sentence}"
@@ -154,6 +171,19 @@ module Github
         return items if terms.empty?
 
         items.select { |item| haystack = yield(item).downcase; terms.all? { |term| haystack.include?(term) } }
+      end
+
+      # A "#123" or "123" term looks that PR up directly; GitHub search treats numbers as text. Other terms
+      # search titles, quoted so they can't act as search qualifiers. A lone login-like term also searches authors.
+      def search_variables(full_name, query)
+        terms = query.to_s.split
+        number = terms.filter_map { |t| t.delete_prefix("#").to_i if t.match?(/\A#?\d+\z/) }.find { |n| n.between?(1, MAX_PR_NUMBER) }
+        words = terms.reject { |t| t.match?(/\A#?\d+\z/) }.map { |t| t.delete('"') }.reject(&:empty?)
+        scope = "repo:#{full_name} is:pr is:open"
+
+        { byNumber: !number.nil?, number: number || 0,
+          byTitle: words.any?, titleSearch: "#{scope} in:title #{words.map { |w| %("#{w}") }.join(" ")}",
+          byAuthor: terms.one? && words.one? && words.first.match?(GITHUB_LOGIN), authorSearch: "#{scope} author:#{words.first}" }
       end
 
       def split_full_name(full_name)

@@ -27,16 +27,16 @@ module ApiStubs
                                  user: { login: "ana", avatar_url: nil }, base: { ref: "main" }, head: { ref: "topic", sha: head_sha },
                                  additions: 12, deletions: 3, changed_files: 1, updated_at: 1.hour.ago.iso8601 }))
     stub_request(:get, "#{GITHUB}/repos/#{repo}/pulls/#{number}/files").with(query: hash_including({}))
-      .to_return(json_response([ { filename: "app/controllers/sessions_controller.rb", status: "modified", additions: 12, deletions: 3 } ]))
-    stub_request(:get, "#{GITHUB}/repos/#{repo}/pulls/#{number}")
-      .with(headers: { "Accept" => "application/vnd.github.diff" })
-      .to_return(status: 200, body: "diff --git a/x b/x\n", headers: { "Content-Type" => "application/vnd.github.diff" })
+      .to_return(json_response([ { filename: "app/controllers/sessions_controller.rb", status: "modified", additions: 12, deletions: 3,
+                                   patch: "@@ -1 +1 @@\n-old\n+new" } ]))
   end
 
+  # Answers the PR question and the question for the PR's one file (file_0) the same way.
   def stub_jev(choice:, probabilities: { "yes" => 0.7, "llm_enough" => 0.2, "no" => 0.1 }, confidence: 0.6)
+    answer = { type: "choice", choice: choice, probabilities: probabilities, confidence: confidence }
     stub_request(:post, Jev::Client::URL).to_return(json_response({
       model: "jev-1.13.0",
-      answers: { PrReviewDecider::QUESTION_ID => { type: "choice", choice: choice, probabilities: probabilities, confidence: confidence } },
+      answers: { PrReviewDecider::QUESTION_ID => answer, "#{PrReviewDecider::FILE_QUESTION_PREFIX}0" => answer },
       usage: { input_tokens: 10, output_tokens: 2 }
     }))
   end
