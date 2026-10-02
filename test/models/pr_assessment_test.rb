@@ -40,4 +40,13 @@ class PrAssessmentTest < ActiveSupport::TestCase
     assert_not PrAssessment.new(head_sha: "old").current_for?(pr)
     assert PrAssessment.new(head_sha: nil).current_for?(pr)
   end
+
+  test "files_by_verdict puts human review files first, then LLM, then no review, then files without a verdict" do
+    files = [ { "filename" => "docs.md", "choice" => "no" }, { "filename" => "logo.png", "skipped" => "no_patch" },
+              { "filename" => "auth.rb", "choice" => "yes" }, { "filename" => "a_test.rb", "choice" => "llm_enough" },
+              { "filename" => "b_test.rb", "choice" => "llm_enough" }, { "filename" => "pay.rb", "choice" => "yes" } ]
+
+    assert_equal %w[auth.rb pay.rb a_test.rb b_test.rb docs.md logo.png],
+                 PrAssessment.new(files: files).files_by_verdict.map { |f| f["filename"] }
+  end
 end

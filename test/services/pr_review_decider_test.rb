@@ -2,10 +2,14 @@ require "test_helper"
 
 class PrReviewDeciderTest < ActiveSupport::TestCase
   class FakeGithub
-    attr_reader :diff
+    attr_reader :files
 
-    def initialize(diff: "diff --git a/README.md b/README.md\n+typo fix\n")
-      @diff = diff
+    def initialize(files: [ self.class.file("README.md", "+typo fix") ])
+      @files = files
+    end
+
+    def self.file(filename, patch, status: "modified")
+      Github::Client::FileChange.new(filename: filename, previous_filename: nil, status: status, additions: 1, deletions: 1, patch: patch)
     end
 
     def pull_request(full_name, number)
@@ -14,24 +18,23 @@ class PrReviewDeciderTest < ActiveSupport::TestCase
                                       additions: 1, deletions: 1, changed_files: 1, updated_at: Time.current)
     end
 
-    def pull_request_files(*)
-      [ Github::Client::FileChange.new(filename: "README.md", status: "modified", additions: 1, deletions: 1) ]
-    end
-
-    def pull_request_diff(*) = diff
+    def pull_request_files(*) = files
   end
 
   class FakeJev
     attr_reader :calls
 
-    def initialize(answer)
+    # Answers every question with `answer`, unless `answers` names one by id (nil leaves it unanswered).
+    def initialize(answer, answers: {})
       @answer = answer
+      @answers = answers
       @calls = []
     end
 
     def ask(**kwargs)
       @calls << kwargs
-      Jev::Client::Response.new(model: "jev-1.13.0", answers: { PrReviewDecider::QUESTION_ID => @answer }, usage: {})
+      answers = kwargs[:questions].keys.to_h { |id| [ id, @answers.fetch(id, @answer) ] }.compact
+      Jev::Client::Response.new(model: "jev-1.13.0", answers: answers, usage: {})
     end
   end
 
@@ -53,19 +56,60 @@ class PrReviewDeciderTest < ActiveSupport::TestCase
     assert_equal "Does this PR need a review from a human?", question[:instructions]
     assert_equal %w[yes llm_enough no], question[:criteria].keys
     assert_equal "acme/web", call[:state][:repository]
-    assert_equal [ "modified README.md (+1 -1)" ], call[:state][:files]
-    assert_match "typo fix", call[:state][:diff]
+    assert_equal({ filename: "README.md", status: "modified", additions: 1, deletions: 1, patch: "+typo fix" }, call[:state][:files].sole)
   end
 
-  test "truncates very large diffs" do
-    big_diff = "+" * (PrReviewDecider::MAX_DIFF_BYTES + 500)
+  test "asks about every file in the same request, pointing each question at its file" do
+    files = [ FakeGithub.file("app/auth.rb", "+token check"), FakeGithub.file("logo.png", nil), FakeGithub.file("README.md", "+typo") ]
+    jev = FakeJev.new({ "choice" => "llm_enough", "probabilities" => {}, "confidence" => 0.6 },
+                      answers: { "file_0" => { "choice" => "yes", "probabilities" => { "yes" => 0.9 }, "confidence" => 0.8 } })
+
+    result = PrReviewDecider.new(github: FakeGithub.new(files: files), jev: jev).decide("acme/web", 7)
+
+    call = jev.calls.sole
+    assert_equal [ PrReviewDecider::QUESTION_ID, "file_0", "file_2" ], call[:questions].keys
+    assert_equal "Does the change to `files[2]` need a review from a human?", call[:questions]["file_2"][:instructions]
+    assert_equal call[:questions][PrReviewDecider::QUESTION_ID][:criteria], call[:questions]["file_2"][:criteria]
+    assert_equal "binary or no text diff", call[:state][:files][1][:patch_omitted]
+
+    assert_equal [ "yes", nil, "llm_enough" ], result.files.map { |f| f.decision&.choice }
+    assert_equal [ nil, :no_patch, nil ], result.files.map(&:skipped)
+    assert_equal 0.9, result.files.first.decision.probabilities["yes"]
+  end
+
+  test "a missing file answer leaves only that file without a verdict" do
+    files = [ FakeGithub.file("a.rb", "+a"), FakeGithub.file("b.rb", "+b") ]
+    jev = FakeJev.new({ "choice" => "no", "probabilities" => {}, "confidence" => 0.6 }, answers: { "file_1" => { "choice" => "maybe" } })
+
+    result = PrReviewDecider.new(github: FakeGithub.new(files: files), jev: jev).decide("acme/web", 7)
+
+    assert_equal "no", result.decision.choice
+    assert_equal [ nil, :no_answer ], result.files.map(&:skipped)
+  end
+
+  test "leaves out whole patches past the size budget instead of cutting them" do
+    half = PrReviewDecider::MAX_DIFF_BYTES / 2
+    files = [ FakeGithub.file("a.rb", "+" * half), FakeGithub.file("big.rb", "+" * (half + 1)), FakeGithub.file("c.rb", "+small") ]
     jev = FakeJev.new({ "choice" => "yes", "probabilities" => {}, "confidence" => 0.5 })
 
-    result = PrReviewDecider.new(github: FakeGithub.new(diff: big_diff), jev: jev).decide("acme/web", 7)
+    result = PrReviewDecider.new(github: FakeGithub.new(files: files), jev: jev).decide("acme/web", 7)
 
     assert result.diff_truncated
-    assert_equal PrReviewDecider::MAX_DIFF_BYTES, jev.calls.sole[:state][:diff].bytesize
-    assert jev.calls.sole[:state][:diff_truncated]
+    state_files = jev.calls.sole[:state][:files]
+    assert_equal [ half, nil, 6 ], state_files.map { |f| f[:patch]&.bytesize }
+    assert_equal "left out to fit the size limit", state_files[1][:patch_omitted]
+    assert_equal [ nil, :too_large, nil ], result.files.map(&:skipped)
+  end
+
+  test "asks about at most MAX_FILE_QUESTIONS files" do
+    files = (PrReviewDecider::MAX_FILE_QUESTIONS + 2).times.map { |i| FakeGithub.file("f#{i}.rb", "+#{i}") }
+    jev = FakeJev.new({ "choice" => "no", "probabilities" => {}, "confidence" => 0.5 })
+
+    result = PrReviewDecider.new(github: FakeGithub.new(files: files), jev: jev).decide("acme/web", 7)
+
+    assert_equal PrReviewDecider::MAX_FILE_QUESTIONS + 1, jev.calls.sole[:questions].size
+    assert_equal [ :too_many, :too_many ], result.files.last(2).map(&:skipped)
+    assert_not result.diff_truncated
   end
 
   test "rejects answers outside the three options" do

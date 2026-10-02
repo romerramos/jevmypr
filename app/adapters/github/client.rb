@@ -10,7 +10,7 @@ module Github
     Repository = Data.define(:full_name, :name, :owner, :private, :description, :pushed_at)
     PullRequest = Data.define(:number, :title, :body, :html_url, :draft, :author_login, :author_avatar_url,
                               :base_ref, :head_ref, :head_sha, :additions, :deletions, :changed_files, :updated_at)
-    FileChange = Data.define(:filename, :status, :additions, :deletions)
+    FileChange = Data.define(:filename, :previous_filename, :status, :additions, :deletions, :patch)
 
     API_URL = "https://api.github.com"
     MAX_PAGES = 5
@@ -49,7 +49,7 @@ module Github
     # Repositories the user can access, most recently pushed first, filtered by name.
     def repositories(query: nil)
       repos = Rails.cache.fetch([ "github/repositories", token_digest ], expires_in: 5.minutes) do
-        paginate("/user/repos", sort: "pushed", affiliation: "owner,collaborator,organization_member").map do |r|
+        paginate("/user/repos", { sort: "pushed", affiliation: "owner,collaborator,organization_member" }).map do |r|
           Repository.new(full_name: r["full_name"], name: r["name"], owner: r.dig("owner", "login"),
                          private: r["private"], description: r["description"], pushed_at: time(r["pushed_at"]))
         end
@@ -83,15 +83,12 @@ module Github
                       deletions: pr["deletions"], changed_files: pr["changed_files"], updated_at: time(pr["updated_at"]))
     end
 
+    # GitHub lists up to 3,000 files. Binary files and very large files come without a patch.
     def pull_request_files(full_name, number)
-      paginate("#{pull_path(full_name, number)}/files").map do |f|
-        FileChange.new(filename: f["filename"], status: f["status"], additions: f["additions"], deletions: f["deletions"])
+      paginate("#{pull_path(full_name, number)}/files", {}, max_pages: 30).map do |f|
+        FileChange.new(filename: f["filename"], previous_filename: f["previous_filename"], status: f["status"],
+                       additions: f["additions"], deletions: f["deletions"], patch: f["patch"])
       end
-    end
-
-    # Unified diff as text.
-    def pull_request_diff(full_name, number)
-      get(pull_path(full_name, number), headers: { "Accept" => "application/vnd.github.diff" }).body
     end
 
     private
@@ -103,11 +100,11 @@ module Github
         raise Error, "Couldn't reach GitHub (#{e.class.name.demodulize})."
       end
 
-      def paginate(path, params = {})
+      def paginate(path, params = {}, max_pages: MAX_PAGES)
         results = []
         response = get(path, params.merge(per_page: PER_PAGE))
 
-        MAX_PAGES.times do
+        max_pages.times do
           results.concat(response.body)
           next_url = next_page_url(response)
           break unless next_url

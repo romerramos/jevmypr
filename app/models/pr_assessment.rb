@@ -2,7 +2,7 @@ class PrAssessment < ApplicationRecord
   # Class names are spelled out in full so Tailwind can find them.
   VERDICTS = {
     "yes" => { label: "Human review", headline: "Get a human on this.", icon: "user-round-check",
-               summary: "Jev found changes where a mistake would be costly. Ask a teammate to review before merging.",
+               summary: "Jev thinks a human reviewer would be useful here. Consider asking a teammate to take a look before merging.",
                status_class: "status-error", progress_class: "progress-error" },
     "llm_enough" => { label: "LLM review", headline: "An LLM review is enough.", icon: "bot",
                       summary: "The changes are real but low-risk. An automated LLM review should catch what matters.",
@@ -10,6 +10,13 @@ class PrAssessment < ApplicationRecord
     "no" => { label: "No review", headline: "Safe to merge without review.", icon: "check",
               summary: "Jev found only trivial changes. Nobody needs to review this one.",
               status_class: "status-success", progress_class: "progress-success" }
+  }.freeze
+  # Why a file has no verdict of its own, kept short enough to sit where its verdict would be.
+  FILE_SKIPS = {
+    "no_patch" => { label: "No diff", title: "GitHub has no text diff for this file (binary or very large)." },
+    "too_large" => { label: "Not read", title: "Left out to keep the pull request within what Jev can read at once." },
+    "too_many" => { label: "Not read", title: "Jev answers for the first #{PrReviewDecider::MAX_FILE_QUESTIONS} files with a diff." },
+    "no_answer" => { label: "No answer", title: "Jev didn't answer for this file." }
   }.freeze
 
   belongs_to :user
@@ -47,7 +54,7 @@ class PrAssessment < ApplicationRecord
       additions: pull_request.additions.to_i,
       deletions: pull_request.deletions.to_i,
       changed_files: pull_request.changed_files.to_i,
-      files: result.files.map(&:to_h),
+      files: result.files.map { |verdict| file_entry(verdict) },
       choice: decision.choice,
       probabilities: decision.probabilities,
       confidence: decision.confidence,
@@ -58,8 +65,32 @@ class PrAssessment < ApplicationRecord
     )
   end
 
+  # The file's metadata plus Jev's verdict for it, or why there is none. Patches aren't stored.
+  def self.file_entry(verdict)
+    file = verdict.file
+    entry = { "filename" => file.filename, "status" => file.status, "additions" => file.additions, "deletions" => file.deletions }
+    if (decision = verdict.decision)
+      entry.merge("choice" => decision.choice, "probabilities" => decision.probabilities, "confidence" => decision.confidence)
+    else
+      entry.merge("skipped" => verdict.skipped.to_s)
+    end
+  end
+
   def verdict
     VERDICTS.fetch(choice)
+  end
+
+  # Files that need the most attention first (human, LLM, none, then those without a verdict),
+  # keeping GitHub's order within each group.
+  def files_by_verdict
+    rank = VERDICTS.keys
+    files.each_with_index.sort_by { |file, i| [ rank.index(file["choice"]) || rank.size, i ] }.map(&:first)
+  end
+
+  # How many files got each verdict, in the order of VERDICTS.
+  def file_verdict_counts
+    tally = files.filter_map { |file| file["choice"] }.tally
+    VERDICTS.filter_map { |key, verdict| [ key, verdict, tally[key] ] if tally[key] }
   end
 
   # Whether this verdict was given for the pull request's current code. Verdicts saved before

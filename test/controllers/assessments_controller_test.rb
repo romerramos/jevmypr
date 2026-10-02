@@ -18,7 +18,10 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "sha-7", assessment.head_sha
     assert_equal [ "acme/web", 7, "yes", "jev-1.13.0" ], [ assessment.repo_full_name, assessment.pr_number, assessment.choice, assessment.jev_model ]
     assert_equal 0.7, assessment.probabilities["yes"]
-    assert_equal "app/controllers/sessions_controller.rb", assessment.files.first["filename"]
+    file = assessment.files.sole
+    assert_equal [ "app/controllers/sessions_controller.rb", "yes", 0.7 ], file.values_at("filename", "choice", "probabilities").then { |n, c, p| [ n, c, p["yes"] ] }
+    assert_not file.key?("patch")
+    assert_requested :post, Jev::Client::URL, times: 1
 
     follow_redirect!
     assert_select "h1", "Get a human on this."
@@ -27,6 +30,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".verdict-badge.verdict-badge--yes", text: /Human review/
     assert_select "a[href=?]", "https://github.com/acme/web/pull/7", text: /Open on GitHub/
     assert_select "main progress", 3
+    assert_select "li", text: /sessions_controller\.rb.*Human review/m
     assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/7/assessments", text: /Ask\s*Jev\s*again/
     assert_select ".ask-jev-overlay"
   end

@@ -47,22 +47,32 @@ class Github::ClientTest < ActiveSupport::TestCase
     assert_raises(Github::Client::NotFound) { @client.pull_requests("acme/missing") }
   end
 
-  test "pull_request, files and diff" do
+  test "pull_request and files with their patches" do
     stub_request(:get, "#{API}/repos/acme/web/pulls/7")
       .with(headers: { "Accept" => "application/vnd.github+json" })
       .to_return(json_response({ number: 7, title: "Fix login redirect", body: "Details", html_url: "https://github.com/acme/web/pull/7",
                                  draft: false, user: { login: "ana", avatar_url: "https://a/ana" }, base: { ref: "main" },
                                  head: { ref: "fix-login", sha: "f00d" }, additions: 12, deletions: 3, changed_files: 2, updated_at: "2026-09-20T10:00:00Z" }))
     stub_request(:get, "#{API}/repos/acme/web/pulls/7/files").with(query: hash_including({}))
-      .to_return(json_response([ { filename: "app/login.rb", status: "modified", additions: 12, deletions: 3 } ]))
-    stub_request(:get, "#{API}/repos/acme/web/pulls/7")
-      .with(headers: { "Accept" => "application/vnd.github.diff" })
-      .to_return(status: 200, body: "diff --git a/app/login.rb b/app/login.rb\n", headers: { "Content-Type" => "application/vnd.github.diff; charset=utf-8" })
+      .to_return(json_response([ { filename: "app/login.rb", previous_filename: "app/signin.rb", status: "renamed",
+                                   additions: 12, deletions: 3, patch: "+new" } ]))
 
     pr = @client.pull_request("acme/web", "7")
     assert_equal [ "ana", "main", "fix-login", "f00d" ], [ pr.author_login, pr.base_ref, pr.head_ref, pr.head_sha ]
-    assert_equal [ "app/login.rb" ], @client.pull_request_files("acme/web", 7).map(&:filename)
-    assert_match "diff --git", @client.pull_request_diff("acme/web", 7)
+    file = @client.pull_request_files("acme/web", 7).sole
+    assert_equal [ "app/login.rb", "app/signin.rb", "+new" ], [ file.filename, file.previous_filename, file.patch ]
+  end
+
+  test "files paginate beyond the repository limit" do
+    6.times do |i|
+      page = i + 1
+      query = page == 1 ? { per_page: "100" } : { page: page.to_s }
+      headers = page < 6 ? { "Link" => %(<#{API}/repos/acme/web/pulls/7/files?page=#{page + 1}>; rel="next") } : {}
+      stub_request(:get, "#{API}/repos/acme/web/pulls/7/files").with(query: query)
+        .to_return(json_response([ { filename: "file#{page}.rb", status: "modified", patch: "+new" } ], headers: headers))
+    end
+
+    assert_equal 6, @client.pull_request_files("acme/web", 7).size
   end
 
   test "rejects repository names and numbers that aren't owner/name and integers" do
