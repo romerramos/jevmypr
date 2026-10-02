@@ -31,6 +31,11 @@ Pick a PR from your GitHub repositories and Jev reads the diff and tags it:<br>
 Verdicts are saved. Opening a pull request that hasn't changed since its last verdict shows the saved one for
 free; you can always ask Jev again.
 
+On the verdict page, **Check every file** asks the same question for each changed file, with the PR title and
+description as context. Results appear beside each file and are saved. Each file verdict counts toward your
+weekly limit. You can resume unfinished checks; files with missing or oversized patches stay unassessed.
+If the PR changes, ask for a fresh PR verdict before checking its files.
+
 <p align="center">
   <img src="docs/verdict.png" alt="A verdict: a triage tag with the human review strip, probabilities for each option and the changed files" width="820">
 </p>
@@ -46,10 +51,12 @@ Jev my PR only uses your data to answer the question above.
 - **GitHub:** it asks for the `read:user` and `repo` scopes. `repo` is the only way GitHub offers to read private
   repositories; the app only ever *reads* (repositories, pull requests, files and diffs) and never writes.
 - **Sent to Jev (typesafe.ai):** for the pull request you pick: repository name, title, description (first
-  5,000 characters), author login, branch names, line counts, file list and the diff (first 100 KB).
+  5,000 characters), author login, branch names, line counts, file list and the diff (first 100 KB). For file
+  checks, it sends the repository, PR title and description, file metadata and that file's patch.
 - **Stored:** your GitHub id, login, name, avatar URL and account creation date; your GitHub token, **encrypted**
   with Active Record encryption; sign-in sessions (IP address and browser); your verdicts (PR title, URL, file list,
-  result and token counts), pinned repositories, and which pull requests were too big for Jev to read.
+  result and token counts, including per-file verdicts), pinned repositories, and which pull requests were too big
+  for Jev to read.
 - **Not done:** no analytics, no trackers, no third-party scripts or fonts, nothing sold or shared. The only other
   thing your browser loads is GitHub avatars, from GitHub.
 - **Delete it:** *account menu → Delete my data* removes your account, token, verdicts, pins and too-big marks. You can also
@@ -60,8 +67,8 @@ Jev my PR only uses your data to answer the question above.
 Jev my PR is free and runs on a small monthly budget, so there are limits (see
 [`app/models/jev_allowance.rb`](app/models/jev_allowance.rb)):
 
-- **30 verdicts per user per week** (about 6 per workday). Re-reading saved verdicts and reopening pull requests
-  that haven't changed since their verdict is free.
+- **30 verdicts per user per week** (about 6 per workday). PR and file verdicts share this limit. Re-reading
+  saved verdicts and reopening pull requests that haven't changed since their verdict is free.
 - **5 requests per minute** per user.
 - GitHub accounts **younger than 30 days** can look around but can't ask Jev (keeps bots out).
 - New verdicts **pause for everyone** once the month's estimated Jev spend reaches the budget, until the 1st.
