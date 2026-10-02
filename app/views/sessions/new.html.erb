@@ -8,12 +8,21 @@
     </p>
 
     <div class="mt-10">
-      <% if github_sign_in_configured? %>
+      <% if github_sign_in_configured? && !DevelopmentPreview.enabled? %>
         <%= button_to "/auth/github", class: "btn btn-primary btn-lg", data: { turbo: false } do %>
           <%= lucide_icon "github", class: "size-5", "aria-hidden": true %>
           Continue with GitHub
         <% end %>
         <p class="mt-3 text-sm text-base-content/60">We read your repositories and pull requests. Nothing is written to GitHub.</p>
+      <% elsif DevelopmentPreview.enabled? %>
+        <%= button_to preview_session_path, class: "btn btn-primary btn-lg" do %>
+          <%= lucide_icon "flask-conical", class: "size-5", "aria-hidden": true %>
+          Try with sample data
+        <% end %>
+        <div role="alert" class="alert alert-warning alert-soft mt-4 max-w-md">
+          <%= lucide_icon "key-round", class: "size-5", "aria-hidden": true %>
+          <span>GitHub or Jev credentials are missing, so this is sample data. Nothing is sent to either. Add the GitHub OAuth app and <code>typesafe.api_key</code> (or <code>GITHUB_CLIENT_ID</code>, <code>GITHUB_CLIENT_SECRET</code>, and <code>TYPESAFE_API_KEY</code>) and restart to use the real ones.</span>
+        </div>
       <% else %>
         <div role="alert" class="alert alert-warning alert-soft max-w-md">
           <%= lucide_icon "key-round", class: "size-5", "aria-hidden": true %>

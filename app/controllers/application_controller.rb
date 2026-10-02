@@ -7,7 +7,12 @@ class ApplicationController < ActionController::Base
   stale_when_importmap_changes
 
   private
+    def previewing?
+      DevelopmentPreview.enabled? && Current.user&.github_uid == DevelopmentPreview::UID
+    end
+    helper_method :previewing?
+
     def github
-      @github ||= Github::Client.new(Current.user.github_token)
+      @github ||= previewing? ? Github::PreviewClient.new : Github::Client.new(Current.user.github_token)
     end
 end

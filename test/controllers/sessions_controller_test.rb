@@ -56,6 +56,15 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "gho_rotated", user.github_token
   end
 
+  test "preview sign-in is not available outside development, even with no credentials" do
+    assert_not DevelopmentPreview.enabled?
+
+    post preview_session_path
+
+    assert_response :not_found
+    assert_nil cookies[:session_id]
+  end
+
   test "failure sends the user back to sign in with an explanation" do
     get auth_failure_path(message: "access_denied")
 

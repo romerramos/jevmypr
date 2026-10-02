@@ -40,6 +40,10 @@ Rails.application.configure do
   # Set localhost to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
 
+  # Amp orbs serve the app through a *.onamp.dev portal, which Rails would
+  # otherwise block as an unknown host. Localhost is still allowed by default.
+  config.hosts << ".onamp.dev"
+
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log
 
