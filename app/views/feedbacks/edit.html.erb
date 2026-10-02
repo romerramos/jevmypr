@@ -1,0 +1,33 @@
+<% content_for :title, "Disagree: #{@assessment.repo_full_name} ##{@assessment.pr_number}" %>
+<% selected = params.dig(:feedback, :choice) || (@assessment.feedback_choice if @assessment.disagreed?) %>
+
+<%= turbo_frame_tag "feedback", class: "mt-10 block max-w-xl" do %>
+  <%= form_with url: assessment_feedback_path(@assessment), method: :patch, class: "rounded-box border border-base-300 p-4 sm:p-5" do |form| %>
+    <fieldset class="fieldset gap-3 p-0">
+      <legend class="fieldset-legend pt-0 font-display text-base font-bold">
+        Jev said <%= @assessment.verdict[:needs] %>. What should it have been?
+      </legend>
+      <div class="flex flex-wrap gap-2">
+        <% PrAssessment::VERDICTS.except(@assessment.choice).each do |key, option| %>
+          <label class="btn btn-sm font-normal has-checked:border-base-content has-checked:bg-base-content has-checked:text-base-100 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent">
+            <%= radio_button_tag "feedback[choice]", key, selected == key, class: "sr-only", required: true %>
+            <span class="status <%= option[:status_class] %>" aria-hidden="true"></span>
+            <%= option[:label] %>
+          </label>
+        <% end %>
+      </div>
+      <% if @error %><p class="text-sm text-error" role="alert"><%= @error %></p><% end %>
+    </fieldset>
+
+    <fieldset class="fieldset mt-3 p-0">
+      <legend class="fieldset-legend">Why? <span class="font-normal text-base-content/60">(optional)</span></legend>
+      <%= text_area_tag "feedback[reason]", params.dig(:feedback, :reason) || @assessment.feedback_reason, rows: 3,
+            maxlength: PrAssessment::MAX_FEEDBACK_REASON, placeholder: "What did Jev miss?", class: "textarea w-full" %>
+    </fieldset>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+      <%= form.button "Save vote", class: "btn btn-primary btn-sm" %>
+      <%= link_to "Cancel", assessment_path(@assessment), class: "btn btn-ghost btn-sm" %>
+    </div>
+  <% end %>
+<% end %>

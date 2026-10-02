@@ -1,13 +1,13 @@
 class PrAssessment < ApplicationRecord
   # Class names are spelled out in full so Tailwind can find them.
   VERDICTS = {
-    "yes" => { label: "Human review", headline: "Get a human on this.", icon: "user-round-check",
+    "yes" => { label: "Human review", needs: "a human review", headline: "Get a human on this.", icon: "user-round-check",
                summary: "Jev thinks a human reviewer would be useful here. Consider asking a teammate to take a look before merging.",
                status_class: "status-error", progress_class: "progress-error" },
-    "llm_enough" => { label: "LLM review", headline: "An LLM review is enough.", icon: "bot",
+    "llm_enough" => { label: "LLM review", needs: "an LLM review", headline: "An LLM review is enough.", icon: "bot",
                       summary: "The changes are real but low-risk. An automated LLM review should catch what matters.",
                       status_class: "status-warning", progress_class: "progress-warning" },
-    "no" => { label: "No review", headline: "Safe to merge without review.", icon: "check",
+    "no" => { label: "No review", needs: "no review", headline: "Safe to merge without review.", icon: "check",
               summary: "Jev found only trivial changes. Nobody needs to review this one.",
               status_class: "status-success", progress_class: "progress-success" }
   }.freeze
@@ -19,10 +19,17 @@ class PrAssessment < ApplicationRecord
     "no_answer" => { label: "No answer", title: "Jev didn't answer for this file." }
   }.freeze
 
+  # How many of your rated verdicts you agreed with, and which way Jev was off when you didn't:
+  # needed_more is the miss that matters (you'd have wanted more review than Jev said).
+  FeedbackSummary = Data.define(:rated, :agreed, :needed_more, :needed_less)
+  MAX_FEEDBACK_REASON = 1_000
+
   belongs_to :user
 
   validates :repo_full_name, :pr_number, :pr_title, :pr_url, presence: true
   validates :choice, inclusion: { in: VERDICTS.keys }
+  validates :feedback_choice, inclusion: { in: VERDICTS.keys }, allow_nil: true
+  validates :feedback_reason, length: { maximum: MAX_FEEDBACK_REASON }
   validates :pr_url, format: { with: %r{\Ahttps://github\.com/[\w.-]+/[\w.-]+/pull/\d+\z}, message: "must be a github.com pull request URL" }
 
   scope :recent, -> { order(created_at: :desc, id: :desc) }
@@ -38,6 +45,17 @@ class PrAssessment < ApplicationRecord
       end
     end
   }
+
+  def self.feedback_summary
+    votes = where.not(feedback_choice: nil).pluck(:choice, :feedback_choice)
+    rank = VERDICTS.keys.reverse # "no", "llm_enough", "yes": more review further along
+    FeedbackSummary.new(
+      rated: votes.size,
+      agreed: votes.count { |choice, vote| choice == vote },
+      needed_more: votes.count { |choice, vote| rank.index(vote) > rank.index(choice) },
+      needed_less: votes.count { |choice, vote| rank.index(vote) < rank.index(choice) }
+    )
+  end
 
   def self.from_result(user:, repo_full_name:, result:)
     pull_request = result.pull_request
@@ -79,6 +97,21 @@ class PrAssessment < ApplicationRecord
   def verdict
     VERDICTS.fetch(choice)
   end
+
+  # Your vote on Jev's verdict: Jev's own choice to agree, or the one it should have been.
+  # A reason only goes with a disagreement.
+  def record_feedback!(choice:, reason: nil)
+    update!(feedback_choice: choice, feedback_reason: (reason.to_s.strip.presence unless choice == self.choice),
+            feedback_at: Time.current)
+  end
+
+  def clear_feedback!
+    update!(feedback_choice: nil, feedback_reason: nil, feedback_at: nil)
+  end
+
+  def feedback? = feedback_choice.present?
+  def agreed? = feedback? && feedback_choice == choice
+  def disagreed? = feedback? && !agreed?
 
   # Files that need the most attention first (human, LLM, none, then those without a verdict),
   # keeping GitHub's order within each group.
