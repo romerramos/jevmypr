@@ -9,11 +9,11 @@ class VerdictsTest < ApplicationSystemTestCase
     end
     user.pr_assessments.create!(repo_full_name: "acme/vault", pr_number: 99, pr_title: "Rotate API keys",
                                 pr_url: "https://github.com/acme/vault/pull/99", choice: "yes", created_at: 1.day.ago)
-    stub_github_repositories("acme/web")
+    stub_github_repositories("acme/web", "acme/vault")
     sign_in_with_github user
 
     click_on "Verdicts"
-    assert_selector "h1", text: "Your verdicts"
+    assert_selector "h1", text: "Verdicts"
     assert_selector "#verdicts .list-row", count: 20
     assert_text "1–20 of 23"
 

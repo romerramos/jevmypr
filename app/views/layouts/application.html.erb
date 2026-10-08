@@ -14,6 +14,7 @@
     <meta name="theme-color" content="#121922" media="(prefers-color-scheme: dark)">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <% if authenticated? %><meta name="turbo-cache-control" content="no-cache"><% end %>
 
     <script>
       try {
@@ -34,7 +35,7 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="flex flex-col <%= "app-shell:h-dvh app-shell:overflow-hidden" if content_for?(:app_shell) %>">
+  <body data-turbo-prefetch="false" class="flex flex-col <%= "app-shell:h-dvh app-shell:overflow-hidden" if content_for?(:app_shell) %>">
     <%# Clips anything wider than the screen (e.g. the swinging tag mid-animation) so nothing can widen
         the page on any device. A regular element clips for real; body's overflow would go to the viewport. %>
     <div class="flex min-h-0 flex-1 flex-col overflow-x-clip">
@@ -94,7 +95,7 @@
                   </li>
                   <li>
                     <%= link_to account_path, class: "text-error",
-                          data: { turbo_method: :delete, turbo_confirm: "Delete your account, all your verdicts and pins? This can't be undone." } do %>
+                          data: { turbo_method: :delete, turbo_confirm: "Delete your account, token, sessions, pins, private votes and legacy snapshots? Shared repository verdicts and PR/file metadata stay for people with current GitHub access, without a link to your account. This can't be undone." } do %>
                       <%= lucide_icon "trash-2", class: "size-4", "aria-hidden": true %>
                       Delete my data
                     <% end %>

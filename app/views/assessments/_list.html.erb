@@ -5,7 +5,7 @@
         <span class="status status-md <%= assessment.verdict[:status_class] %>" aria-hidden="true"></span>
         <span class="min-w-0">
           <span class="block truncate font-medium"><%= assessment.pr_title %></span>
-          <span class="block truncate text-sm text-base-content/60"><%= assessment.repo_full_name %> #<%= assessment.pr_number %></span>
+          <span class="block truncate text-sm text-base-content/60"><%= assessment.repository_full_name %> #<%= assessment.pr_number %> · <%= assessment.repository_id? ? "Shared" : "Private legacy" %></span>
         </span>
         <span class="text-right text-sm text-base-content/70">
           <span class="max-sm:sr-only"><%= assessment.verdict[:label] %></span>

@@ -3,7 +3,8 @@ require "application_system_test_case"
 class FeedbackTest < ApplicationSystemTestCase
   setup do
     @user = users(:one)
-    @assessment = @user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 7, pr_title: "Fix a typo in the README",
+    @assessment = @user.pr_assessments.create!(repository: repositories(:web), head_sha: "sha-7",
+      repo_full_name: "acme/web", pr_number: 7, pr_title: "Fix a typo in the README",
       pr_url: "https://github.com/acme/web/pull/7", choice: "no", changed_files: 1, additions: 1, deletions: 1,
       probabilities: { "yes" => 0.04, "llm_enough" => 0.11, "no" => 0.85 }, confidence: 0.8, jev_model: "jev-1.13.0")
     stub_github_repositories("acme/web")
@@ -24,7 +25,7 @@ class FeedbackTest < ApplicationSystemTestCase
 
     assert_selector "#feedback", text: "You said this needed a human review."
     assert_selector "#feedback blockquote", text: "It also changes the payments webhook."
-    assert_equal "yes", @assessment.reload.feedback_choice
+    assert_equal "yes", @user.feedbacks.find_by!(pr_assessment: @assessment).choice
     screenshots("feedback-saved")
 
     click_on "Verdicts"

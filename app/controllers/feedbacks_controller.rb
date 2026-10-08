@@ -1,5 +1,6 @@
-# Your vote on one of your verdicts: agree, or say what it should have been and why.
+# Your private vote on a repository verdict: agree, or say what it should have been and why.
 class FeedbacksController < ApplicationController
+  include GithubErrors
   before_action :set_assessment
 
   def edit
@@ -12,17 +13,20 @@ class FeedbacksController < ApplicationController
       return render :edit, status: :unprocessable_entity
     end
 
-    @assessment.record_feedback!(choice: choice, reason: params.dig(:feedback, :reason).to_s.first(PrAssessment::MAX_FEEDBACK_REASON))
+    @feedback.record!(choice: choice, reason: params.dig(:feedback, :reason).to_s.first(Feedback::MAX_REASON))
     redirect_to assessment_path(@assessment), status: :see_other
   end
 
   def destroy
-    @assessment.clear_feedback!
+    @feedback.destroy! if @feedback.persisted?
     redirect_to assessment_path(@assessment), status: :see_other
   end
 
   private
     def set_assessment
-      @assessment = Current.user.pr_assessments.find(params[:assessment_id])
+      @assessment = PrAssessment.find(params[:assessment_id]).verify_access!(user: Current.user, github: github)
+      @feedback = Current.user.feedbacks.find_or_initialize_by(pr_assessment: @assessment)
     end
+
+    def default_frame = "feedback"
 end
