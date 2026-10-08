@@ -2,6 +2,15 @@
 <% total = @counts.values.sum %>
 
 <h1 class="font-display text-3xl font-extrabold sm:text-4xl">Verdicts</h1>
+<% if @fetched_at %>
+  <p class="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-base-content/60">
+    <span>Repository access checked <%= time_tag @fetched_at, short_time_ago(@fetched_at), title: l(@fetched_at, format: :long) %></span>
+    <%= link_to assessments_path(q: @query.presence, verdict: @verdict, refresh: 1), class: "link inline-flex items-center gap-1",
+          data: { turbo_prefetch: false }, title: "Check your repository access on GitHub again" do %>
+      <%= lucide_icon "refresh-cw", class: "size-3.5", "aria-hidden": true %>Check again
+    <% end %>
+  </p>
+<% end %>
 
 <% if total.zero? %>
   <p class="mt-2 text-base-content/70">No saved verdicts in the repositories you can access yet.</p>

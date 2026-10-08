@@ -14,14 +14,19 @@ module Github
 
     API_URL = "https://api.github.com"
     MAX_PAGES = 5
+    LIST_TTL = 5.minutes # The repository list, which is also proof of access for lists of saved verdicts
+    PULL_REQUESTS_TTL = 1.minute
+    DIFF_STATS_TTL = 30.days # Keyed by head commit, so they never go stale; this only bounds the cache
+    DIFF_STATS_BY_NUMBER = 10
     PER_PAGE = 100
     FULL_NAME = %r{\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z}
 
     # The 100 most recently updated open PRs, plus, when searching, the PR with that number and
     # GitHub search results by title and by author, so older PRs can be found too. All in one request.
+    # Diff stats are left out: GitHub computes them per PR, which makes this query several times slower.
     OPEN_PULL_REQUESTS_QUERY = <<~GRAPHQL
       fragment PullRequestFields on PullRequest {
-        number title body url isDraft state updatedAt additions deletions changedFiles baseRefName headRefName headRefOid
+        number title url isDraft state updatedAt baseRefName headRefName headRefOid
         author { login avatarUrl }
       }
 
@@ -45,6 +50,7 @@ module Github
       raise Unauthorized, "Missing GitHub token. Sign in again." if token.blank?
 
       @token = token
+      @fetched_at = {}
       @connection = Faraday.new(url: API_URL) do |f|
         f.request :authorization, "Bearer", token
         f.request :json
@@ -57,29 +63,42 @@ module Github
       end
     end
 
-    # The cached picker list is discovery, not authorization. History asks for a fresh list.
+    # Most recently pushed first. Cached for a few minutes; lists of saved verdicts also treat it as
+    # proof of access, so `fresh: true` (the Refresh button) re-reads it.
     def repositories(query: nil, fresh: false)
-      repos = Rails.cache.fetch([ "github/repositories/v2", token_digest ], expires_in: 5.minutes, force: fresh) do
+      repos = cached([ "github/repositories/v3", token_digest ], :repositories, expires_in: LIST_TTL, fresh: fresh) do
         paginate("/user/repos", { sort: "pushed", affiliation: "owner,collaborator,organization_member" }).map { |r| repository_from(r) }
       end
 
       filter(repos, query) { |repo| repo.full_name }
     end
 
-    # Uncached, with this viewer's token. Stable IDs keep renames and name reuse separate.
-    def repository(identity)
-      repo = repository_from(get(repository_path(identity)).body)
-      raise NotFound, "That repository isn't visible to you." if identity.is_a?(Integer) && repo.github_id != identity
+    # Live with this viewer's token by default. Stable IDs keep renames and name reuse separate.
+    # `cached: true` reuses a lookup, or a miss, for as long as the repository list is cached.
+    def repository(identity, cached: false, fresh: false)
+      return lookup_repository(identity) unless cached
 
-      repo
+      repo = Rails.cache.fetch([ "github/repository/v1", token_digest, identity.to_s.downcase ], expires_in: LIST_TTL, force: fresh) do
+        lookup_repository(identity)
+      rescue NotFound
+        false
+      end
+      repo || raise(NotFound, "That repository isn't visible to you.")
     end
+
+    # When a cached list (:repositories or :pull_requests) was last read from GitHub in this request.
+    def fetched_at(list) = @fetched_at[list]
 
     # Open pull requests, most recently updated first, filtered by title, number or author.
     # Without a query it's the 100 most recently updated; a query also reaches older ones.
-    def pull_requests(full_name, query: nil, github_id: nil)
+    # Cached briefly per viewer and search; `fresh: true` re-reads it.
+    def pull_requests(full_name, query: nil, github_id: nil, fresh: false)
       owner, name = split_full_name(full_name)
-      data = graphql(OPEN_PULL_REQUESTS_QUERY, { owner: owner, name: name, **search_variables(full_name, query) },
-                     missing_ok: [ %w[repository numbered] ])
+      key = [ "github/pull_requests/v1", token_digest, full_name.downcase, query.to_s.split.join(" ") ]
+      data = cached(key, :pull_requests, expires_in: PULL_REQUESTS_TTL, fresh: fresh) do
+        graphql(OPEN_PULL_REQUESTS_QUERY, { owner: owner, name: name, **search_variables(full_name, query) },
+                missing_ok: [ %w[repository numbered] ])
+      end
       raise NotFound, "Repository #{full_name} wasn't found or isn't visible to you." if data["repository"].nil?
       if github_id && data.dig("repository", "databaseId") != github_id
         raise NotFound, "The repository identity changed. Choose it again from the repository list."
@@ -99,7 +118,7 @@ module Github
                         deletions: pr["deletions"], changed_files: pr["changedFiles"], updated_at: time(pr["updatedAt"]))
       end
 
-      filter(pulls, query) { |pr| "##{pr.number} #{pr.title} #{pr.author_login}" }
+      with_diff_stats(owner, name, data.dig("repository", "databaseId"), filter(pulls, query) { |pr| "##{pr.number} #{pr.title} #{pr.author_login}" })
     end
 
     def pull_request(full_name, number)
@@ -120,6 +139,58 @@ module Github
     end
 
     private
+      # The block's result, with when it was read, cached under key. Not for authorization on its own.
+      def cached(key, list, expires_in:, fresh:)
+        entry = Rails.cache.fetch(key, expires_in: expires_in, force: fresh) { { "at" => Time.current, "value" => yield } }
+        @fetched_at[list] = entry["at"]
+        entry["value"]
+      end
+
+      def lookup_repository(identity)
+        repo = repository_from(get(repository_path(identity)).body)
+        raise NotFound, "That repository isn't visible to you." if identity.is_a?(Integer) && repo.github_id != identity
+
+        repo
+      end
+
+      # Additions and deletions, cached by repository, PR and head commit, so only new pushes are asked
+      # for, in one request. Shared between viewers: the key needs a head commit from the viewer's own list.
+      # Decorative, so a GitHub hiccup leaves them out rather than failing the list.
+      def with_diff_stats(owner, name, repository_id, pulls)
+        keys = pulls.select { |pr| pr.additions.nil? }.to_h { |pr| [ pr.number, [ "github/diff_stats/v1", repository_id, pr.number, pr.head_sha ] ] }
+        return pulls if keys.empty?
+
+        stats = Rails.cache.read_multi(*keys.values)
+        missing = keys.keys.reject { |number| stats.key?(keys[number]) }
+        stats.merge!(fetch_diff_stats(owner, name, repository_id, missing)) if missing.any?
+
+        pulls.map do |pr|
+          (diff = stats[keys[pr.number]]) ? pr.with(additions: diff["additions"], deletions: diff["deletions"]) : pr
+        end
+      end
+
+      # A few PRs are asked for by number; for many (a first visit), GitHub answers the recent list faster.
+      def fetch_diff_stats(owner, name, repository_id, numbers)
+        selection = if numbers.size > DIFF_STATS_BY_NUMBER
+          "recent: pullRequests(states: OPEN, first: 100, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { number headRefOid additions deletions } }"
+        else
+          numbers.map { |number| "pr#{Integer(number)}: pullRequest(number: #{Integer(number)}) { number headRefOid additions deletions }" }.join(" ")
+        end
+        data = graphql("query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { #{selection} } }",
+                       { owner: owner, name: name }, missing_ok: numbers.map { |number| [ "repository", "pr#{number}" ] })
+        repository = data["repository"].to_h
+        nodes = repository.key?("recent") ? repository.dig("recent", "nodes") : repository.values.compact
+        fetched = nodes.to_h do |pr|
+          [ [ "github/diff_stats/v1", repository_id, pr["number"], pr["headRefOid"] ], pr.slice("additions", "deletions") ]
+        end
+        Rails.cache.write_multi(fetched, expires_in: DIFF_STATS_TTL)
+        fetched
+      rescue Unauthorized
+        raise
+      rescue Error
+        {}
+      end
+
       def get(path, params = {}, headers: {})
         response = @connection.get(path, params, headers)
         handle_errors!(response)

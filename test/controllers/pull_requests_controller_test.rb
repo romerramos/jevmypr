@@ -77,6 +77,23 @@ class PullRequestsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/8/assessments", text: /Ask Jev/
   end
 
+  test "the list is reused for a minute, and Refresh reads GitHub again" do
+    with_memory_cache do
+      stub_github_pull_requests([ pull_request_node(number: 7, title: "Fix login redirect") ])
+      2.times { get repository_pull_requests_path(owner: "acme", repo: "web", q: "login") }
+      assert_requested :post, "#{ApiStubs::GITHUB}/graphql", times: 1
+      assert_requested :get, "#{ApiStubs::GITHUB}/repos/acme/web", times: 1
+
+      assert_select "turbo-frame#pull_request_results", text: /Updated just now/
+      assert_select "turbo-frame#pull_request_results a[href=?][data-turbo-frame=pull_request_results][data-turbo-prefetch=false]",
+        "/repositories/acme/web/pull_requests?q=login&refresh=1", text: /Refresh/
+
+      get repository_pull_requests_path(owner: "acme", repo: "web", q: "login", refresh: 1)
+      assert_requested :post, "#{ApiStubs::GITHUB}/graphql", times: 2
+      assert_requested :get, "#{ApiStubs::GITHUB}/repos/acme/web", times: 2
+    end
+  end
+
   test "search renders into the results frame" do
     stub_github_pull_requests([ pull_request_node(number: 7, title: "Fix login redirect") ])
 

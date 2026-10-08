@@ -38,6 +38,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "button[aria-pressed=false][aria-label='Pin acme/alpha']"
     assert_select "li[role=separator]", 1
     assert_select "turbo-frame#repositories[data-turbo-prefetch=false]"
+    assert_select "turbo-frame#repositories a[href=?][data-turbo-frame=repositories]", "/repositories?refresh=1", text: /Refresh/
   end
 
   test "search filters and explains an empty result" do

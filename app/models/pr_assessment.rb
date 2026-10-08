@@ -44,22 +44,22 @@ class PrAssessment < ApplicationRecord
     end
   }
 
-  def self.accessible_to(user:, github:)
-    # A fresh list finds candidates; each stored ID is then checked directly. A cached
-    # list or a stale organization membership never authorizes reading a snapshot.
-    remote_ids = github.repositories(fresh: true).map(&:github_id)
-    ids = Repository.where(github_id: remote_ids).filter_map do |repo|
-      repo.verify_access!(github).id
-    rescue Github::Client::NotFound
-      nil
+  # For lists of saved verdicts. The viewer's repository list, read with their own token, is the
+  # proof of access; it is cached for a few minutes and `fresh: true` re-reads it. A single
+  # verdict and votes on it still check the repository live (verify_access!).
+  def self.accessible_to(user:, github:, fresh: false)
+    remote = github.repositories(fresh: fresh).index_by(&:github_id)
+    ids = Repository.where(github_id: remote.keys).map do |repo|
+      repo.update!(full_name: remote[repo.github_id].full_name) if repo.full_name != remote[repo.github_id].full_name
+      repo.id
     end
-    # Compatibility only: the original owner may still read private legacy history
-    # after a live name lookup. Never bind these snapshots to the returned ID.
-    legacy_names = user.pr_assessments.where(repository_id: nil).distinct.pluck(:repo_full_name).filter_map do |name|
-      github.repository(name)
-      name
+    # Compatibility only: the original owner may still read private legacy history while the
+    # name is visible to them. Never bind these snapshots to a repository ID.
+    visible = remote.values.to_set { |repo| repo.full_name.downcase }
+    legacy_names = user.pr_assessments.where(repository_id: nil).distinct.pluck(:repo_full_name).select do |name|
+      visible.include?(name.downcase) || github.repository(name, cached: true, fresh: fresh)
     rescue Github::Client::NotFound
-      nil
+      false
     end
     where(repository_id: ids).or(where(repository_id: nil, user_id: user.id, repo_full_name: legacy_names)).includes(:repository)
   end

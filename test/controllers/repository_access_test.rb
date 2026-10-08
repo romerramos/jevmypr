@@ -25,7 +25,8 @@ class RepositoryAccessTest < ActionDispatch::IntegrationTest
     patch assessment_feedback_path(legacy), params: { feedback: { choice: "llm_enough", reason: "Edited privately" } }
     assert_equal "Edited privately", vote.reload.reason
     assert_nil legacy.reload.repository_id
-    assert_requested :get, "#{ApiStubs::GITHUB}/repos/acme/web", times: 3,
+    # The show page and the vote look the name up live; the history list finds it in the repository list.
+    assert_requested :get, "#{ApiStubs::GITHUB}/repos/acme/web", times: 2,
       headers: { "Authorization" => "Bearer #{users(:one).github_token}" }
 
     sign_in_as users(:two)
@@ -83,12 +84,13 @@ class RepositoryAccessTest < ActionDispatch::IntegrationTest
     assert_equal "no", @shared.reload.choice
   end
 
-  test "revocation beats an earlier requester link, a pin and a stale repository list on every shared entry point" do
+  test "revocation beats an earlier requester link and a pin on every direct entry point" do
     users(:one).pinned_repositories.create!(full_name: "acme/web")
     users(:one).feedbacks.new(pr_assessment: @shared).record!(choice: "yes", reason: "Personal vote")
     get assessment_path(@shared)
     assert_select "#feedback blockquote", "Personal vote"
     stub_github_repository(token: users(:one).github_token, status: 404)
+    stub_github_repositories(token: users(:one).github_token)
 
     [ assessments_path, repositories_path, assessment_path(@shared), edit_assessment_feedback_path(@shared),
       repository_pull_requests_path(owner: "acme", repo: "web") ].each do |path|
@@ -110,9 +112,32 @@ class RepositoryAccessTest < ActionDispatch::IntegrationTest
     assert_select "#feedback", text: /Personal vote/, count: 0
   end
 
+  test "lists trust a cached repository list until it expires or is refreshed; a single verdict is always checked live" do
+    with_memory_cache do
+      get assessments_path
+      assert_select ".list-row", text: /Repository-only sample/
+      stub_github_repository(status: 404)
+      stub_github_repositories
+
+      get assessments_path
+      assert_select ".list-row", text: /Repository-only sample/
+      get assessment_path(@shared)
+      assert_no_shared_data
+
+      get assessments_path(refresh: 1)
+      assert_no_shared_data
+      stub_github_repositories("acme/web")
+      travel Github::Client::LIST_TTL + 1.second do
+        get repositories_path
+        assert_select ".list-row", text: /Repository-only sample/
+      end
+    end
+  end
+
   test "GitHub errors and timeouts fail closed rather than rendering shared metadata or changing a vote" do
     [ 403, 429, 500 ].each do |status|
       stub_github_repository(status: status)
+      stub_request(:get, "#{ApiStubs::GITHUB}/user/repos").with(query: hash_including({})).to_return(json_response({}, status: status))
       get assessment_path(@shared)
       assert_no_shared_data
       get assessments_path

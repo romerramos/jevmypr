@@ -1,0 +1,15 @@
+<%#
+  When a cached GitHub list was last read, and a link that reads it again.
+  Hover prefetch is off: prefetching the link would re-read GitHub.
+  Locals: at (Time, or nil to render nothing, as in the preview), url, frame (where the link loads), label (what is read again).
+%>
+<% if at %>
+  <div class="flex shrink-0 items-center justify-between gap-2 border-b border-base-300 py-1 pr-1.5 pl-4 text-xs text-base-content/60 <%= local_assigns[:class] %>">
+    <span>Updated <%= time_tag at, short_time_ago(at), title: l(at, format: :long) %></span>
+    <%= link_to url, class: "btn btn-ghost btn-xs gap-1 font-normal", title: "Read #{label} from GitHub again",
+          data: { turbo_frame: frame, turbo_prefetch: false } do %>
+      <%= lucide_icon "refresh-cw", class: "size-3.5", "aria-hidden": true %>
+      Refresh<span class="sr-only"> <%= label %></span>
+    <% end %>
+  </div>
+<% end %>

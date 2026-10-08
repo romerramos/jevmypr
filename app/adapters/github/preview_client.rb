@@ -5,17 +5,20 @@ module Github
       filter(DevelopmentPreview.repositories, query) { |repo| repo.full_name }
     end
 
-    def repository(identity)
+    def repository(identity, cached: false, fresh: false)
       DevelopmentPreview.repositories.find { |repo| repo.github_id == identity || repo.full_name == identity } ||
         raise(Client::NotFound, "That repository isn't in the preview.")
     end
 
-    def pull_requests(full_name, query: nil, github_id: nil)
+    def pull_requests(full_name, query: nil, github_id: nil, fresh: false)
       repo = repository(full_name)
       raise Client::NotFound, "That repository isn't in the preview." if github_id && github_id != repo.github_id
 
       filter(DevelopmentPreview.pull_requests(full_name), query) { |pr| "##{pr.number} #{pr.title} #{pr.author_login}" }
     end
+
+    # Nothing is cached, so there's no "Updated … ago" to show.
+    def fetched_at(_list) = nil
 
     def pull_request(identity, number)
       DevelopmentPreview.pull_request(repository(identity).full_name, number)

@@ -34,8 +34,10 @@ at an already-assessed head commit reuses the saved result for free, even if a t
 again** deliberately creates a fresh verdict and uses the requesting person's allowance.
 
 Pins, votes and reasons are personal. Sharing a verdict never shares or overwrites a teammate's feedback.
-Access is checked live with the viewer's GitHub token; cached repository lists, pins and earlier access do not
-grant access to saved results after revocation.
+Opening a verdict, voting on it and asking Jev check access live with the viewer's GitHub token. Lists of saved
+verdicts trust the viewer's GitHub repository list, cached for up to 5 minutes, so access removed on GitHub can
+take that long to disappear from them; **Refresh** (or **Check again**) re-reads it at once. Pins and earlier access
+never grant access. Open pull requests are cached for a minute, and their diff stats per commit.
 
 Jev also tags each changed file, in the same request: it reads the pull request once and answers the question for
 the whole PR and for every file in parallel. The verdict page shows each file's tag next to it, so you know where a

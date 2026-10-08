@@ -15,7 +15,8 @@ class AssessmentsController < ApplicationController
   def index
     @query = params[:q].to_s.strip
     @verdict = params[:verdict].presence_in(PrAssessment::VERDICTS.keys)
-    accessible = PrAssessment.accessible_to(user: Current.user, github: github)
+    accessible = PrAssessment.accessible_to(user: Current.user, github: github, fresh: params[:refresh].present?)
+    @fetched_at = github.fetched_at(:repositories)
     @counts = accessible.group(:choice).count
     @feedback = Current.user.feedbacks.where(pr_assessment_id: accessible.select(:id)).summary
 
