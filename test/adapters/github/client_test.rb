@@ -18,6 +18,56 @@ class Github::ClientTest < ActiveSupport::TestCase
     assert_equal %w[acme/billing-api], @client.repositories(query: "ACME bill").map(&:full_name)
   end
 
+  test "repository identity lookups are uncached and use the viewer's token" do
+    stub_request(:get, "#{API}/repos/acme/web")
+      .with(headers: { "Authorization" => "Bearer gho_token" })
+      .to_return(json_response(repo_json("acme/web", github_id: 42)))
+    stub_request(:get, "#{API}/repositories/42")
+      .with(headers: { "Authorization" => "Bearer gho_token" })
+      .to_return(json_response(repo_json("acme/renamed", github_id: 42)))
+
+    assert_equal 42, @client.repository("acme/web").github_id
+    2.times { assert_equal "acme/renamed", @client.repository(42).full_name }
+    assert_requested :get, "#{API}/repositories/42", times: 2
+  end
+
+  test "a fresh discovery list bypasses cached repository memberships" do
+    original_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    stub_request(:get, "#{API}/user/repos").with(query: hash_including({}))
+      .to_return(json_response([ repo_json("acme/web") ]), json_response([]))
+
+    assert_equal [ "acme/web" ], @client.repositories.map(&:full_name)
+    assert_equal [ "acme/web" ], @client.repositories.map(&:full_name)
+    assert_empty @client.repositories(fresh: true)
+    assert_requested :get, "#{API}/user/repos", query: hash_including({}), times: 2
+  ensure
+    Rails.cache = original_cache
+  end
+
+  test "missing, invalid or mismatched GitHub IDs do not authorize a repository" do
+    [ nil, 0, -42, "42" ].each do |github_id|
+      stub_request(:get, "#{API}/repos/acme/web").to_return(json_response(repo_json("acme/web", github_id: github_id)))
+      assert_raises(Github::Client::Error) { @client.repository("acme/web") }
+    end
+    stub_request(:get, "#{API}/repositories/42").to_return(json_response(repo_json("acme/web", github_id: 99)))
+    assert_raises(Github::Client::NotFound) { @client.repository(42) }
+    assert_raises(Github::Client::NotFound) { @client.repository(-42) }
+    stub_request(:get, "#{API}/repositories/42").to_return(json_response(repo_json("acme/../secret", github_id: 42)))
+    assert_raises(Github::Client::Error) { @client.repository(42) }
+  end
+
+  test "numeric repository IDs are used for both PR and file reads" do
+    stub_request(:get, "#{API}/repositories/42/pulls/7")
+      .to_return(json_response({ number: 7, title: "Current PR", head: { sha: "current-head" } }))
+    stub_request(:get, "#{API}/repositories/42/pulls/7/files").with(query: hash_including({}))
+      .to_return(json_response([ { filename: "current.rb", status: "added", patch: "+new" } ]))
+
+    assert_equal "current-head", @client.pull_request(42, 7).head_sha
+    file = @client.pull_request_files(42, 7).sole
+    assert_equal [ "current.rb", "+new" ], [ file.filename, file.patch ]
+  end
+
   test "pull_requests uses GraphQL and returns diffstats" do
     stub_request(:post, "#{API}/graphql")
       .with(body: hash_including(variables: hash_including(owner: "acme", name: "web")))
@@ -159,8 +209,9 @@ class Github::ClientTest < ActiveSupport::TestCase
         headRefOid: "sha", author: { login: author, avatarUrl: nil } }
     end
 
-    def repo_json(full_name)
+    def repo_json(full_name, github_id: Zlib.crc32(full_name))
       owner, name = full_name.split("/")
-      { full_name: full_name, name: name, owner: { login: owner }, private: false, description: nil, pushed_at: "2026-09-20T10:00:00Z" }
+      { id: github_id, full_name: full_name, name: name, owner: { login: owner }, private: false,
+        description: nil, pushed_at: "2026-09-20T10:00:00Z" }
     end
 end

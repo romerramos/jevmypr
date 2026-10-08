@@ -19,20 +19,18 @@ class PrAssessment < ApplicationRecord
     "no_answer" => { label: "No answer", title: "Jev didn't answer for this file." }
   }.freeze
 
-  # How many of your rated verdicts you agreed with, and which way Jev was off when you didn't:
-  # needed_more is the miss that matters (you'd have wanted more review than Jev said).
-  FeedbackSummary = Data.define(:rated, :agreed, :needed_more, :needed_less)
-  MAX_FEEDBACK_REASON = 1_000
-
-  belongs_to :user
+  belongs_to :repository, optional: true # Unbound legacy snapshots are retained, not published.
+  belongs_to :user, optional: true # Requester attribution is removed on account deletion.
+  belongs_to :jev_request, optional: true
+  has_many :feedbacks, dependent: :destroy
 
   validates :repo_full_name, :pr_number, :pr_title, :pr_url, presence: true
+  validates :head_sha, presence: true, if: :repository_id?
   validates :choice, inclusion: { in: VERDICTS.keys }
-  validates :feedback_choice, inclusion: { in: VERDICTS.keys }, allow_nil: true
-  validates :feedback_reason, length: { maximum: MAX_FEEDBACK_REASON }
   validates :pr_url, format: { with: %r{\Ahttps://github\.com/[\w.-]+/[\w.-]+/pull/\d+\z}, message: "must be a github.com pull request URL" }
 
   scope :recent, -> { order(created_at: :desc, id: :desc) }
+  scope :for_head, ->(pr) { where(pr_number: pr.number, head_sha: pr.head_sha) }
 
   # Every term must match: "#42" or "42" a PR number, anything else the title or repository.
   scope :search, ->(query) {
@@ -41,29 +39,52 @@ class PrAssessment < ApplicationRecord
         scope.where(pr_number: number.to_i)
       else
         pattern = "%#{sanitize_sql_like(term)}%"
-        scope.where("pr_title LIKE :pattern ESCAPE '\\' OR repo_full_name LIKE :pattern ESCAPE '\\'", pattern: pattern)
+        scope.left_joins(:repository).where("pr_title LIKE :pattern ESCAPE '\\' OR repo_full_name LIKE :pattern ESCAPE '\\' OR repositories.full_name LIKE :pattern ESCAPE '\\'", pattern: pattern)
       end
     end
   }
 
-  def self.feedback_summary
-    votes = where.not(feedback_choice: nil).pluck(:choice, :feedback_choice)
-    rank = VERDICTS.keys.reverse # "no", "llm_enough", "yes": more review further along
-    FeedbackSummary.new(
-      rated: votes.size,
-      agreed: votes.count { |choice, vote| choice == vote },
-      needed_more: votes.count { |choice, vote| rank.index(vote) > rank.index(choice) },
-      needed_less: votes.count { |choice, vote| rank.index(vote) < rank.index(choice) }
-    )
+  def self.accessible_to(user:, github:)
+    # A fresh list finds candidates; each stored ID is then checked directly. A cached
+    # list or a stale organization membership never authorizes reading a snapshot.
+    remote_ids = github.repositories(fresh: true).map(&:github_id)
+    ids = Repository.where(github_id: remote_ids).filter_map do |repo|
+      repo.verify_access!(github).id
+    rescue Github::Client::NotFound
+      nil
+    end
+    # Compatibility only: the original owner may still read private legacy history
+    # after a live name lookup. Never bind these snapshots to the returned ID.
+    legacy_names = user.pr_assessments.where(repository_id: nil).distinct.pluck(:repo_full_name).filter_map do |name|
+      github.repository(name)
+      name
+    rescue Github::Client::NotFound
+      nil
+    end
+    where(repository_id: ids).or(where(repository_id: nil, user_id: user.id, repo_full_name: legacy_names)).includes(:repository)
   end
 
-  def self.from_result(user:, repo_full_name:, result:)
+  def verify_access!(user:, github:)
+    if repository
+      repository.verify_access!(github)
+    else
+      raise ActiveRecord::RecordNotFound unless user_id == user.id
+
+      github.repository(repo_full_name) # Owner-only compatibility; no identity backfill.
+    end
+    self
+  end
+
+  def repository_full_name = repository&.full_name || repo_full_name
+
+  def self.from_result(user:, repository:, result:)
     pull_request = result.pull_request
     decision = result.decision
 
     new(
       user: user,
-      repo_full_name: repo_full_name,
+      repository: repository,
+      repo_full_name: repository.full_name,
       pr_number: pull_request.number,
       pr_title: pull_request.title,
       pr_url: pull_request.html_url,
@@ -98,21 +119,6 @@ class PrAssessment < ApplicationRecord
     VERDICTS.fetch(choice)
   end
 
-  # Your vote on Jev's verdict: Jev's own choice to agree, or the one it should have been.
-  # A reason only goes with a disagreement.
-  def record_feedback!(choice:, reason: nil)
-    update!(feedback_choice: choice, feedback_reason: (reason.to_s.strip.presence unless choice == self.choice),
-            feedback_at: Time.current)
-  end
-
-  def clear_feedback!
-    update!(feedback_choice: nil, feedback_reason: nil, feedback_at: nil)
-  end
-
-  def feedback? = feedback_choice.present?
-  def agreed? = feedback? && feedback_choice == choice
-  def disagreed? = feedback? && !agreed?
-
   # Files that need the most attention first (human, LLM, none, then those without a verdict),
   # keeping GitHub's order within each group.
   def files_by_verdict
@@ -126,10 +132,9 @@ class PrAssessment < ApplicationRecord
     VERDICTS.filter_map { |key, verdict| [ key, verdict, tally[key] ] if tally[key] }
   end
 
-  # Whether this verdict was given for the pull request's current code. Verdicts saved before
-  # head SHAs were recorded count as current: re-asking costs tokens, so it stays an explicit choice.
+  # Only an exact, known commit is reusable. Unknown legacy SHAs are not a wildcard.
   def current_for?(pull_request)
-    head_sha.blank? || head_sha == pull_request.head_sha
+    head_sha.present? && head_sha == pull_request.head_sha
   end
 
   # Probabilities in a fixed order (human, LLM, none) so the rows line up with the tag strips.

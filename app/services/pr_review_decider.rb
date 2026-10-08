@@ -37,9 +37,9 @@ class PrReviewDecider
     @jev = jev
   end
 
-  def decide(full_name, number)
-    pull_request = @github.pull_request(full_name, number)
-    files = @github.pull_request_files(full_name, number)
+  def decide(full_name, number, pull_request: nil, files: nil)
+    pull_request ||= @github.pull_request(full_name, number)
+    files ||= @github.pull_request_files(full_name, number)
     patches = patches_within_budget(files)
     asked = files.each_index.select { |i| patches[i] }.first(MAX_FILE_QUESTIONS)
 
@@ -48,6 +48,7 @@ class PrReviewDecider
     rescue Jev::Client::TooLarge
       raise TooLarge, pull_request
     end
+    yield response.usage.to_h if block_given?
 
     verdicts = files.each_with_index.map do |file, i|
       decision = file_decision(response, i) if asked.include?(i)

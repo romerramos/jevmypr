@@ -10,14 +10,49 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_02_154251) do
-  create_table "oversized_pull_requests", force: :cascade do |t|
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_070000) do
+  create_table "feedbacks", force: :cascade do |t|
+    t.integer "pr_assessment_id", null: false
     t.integer "user_id", null: false
+    t.string "choice", null: false
+    t.text "reason"
+    t.datetime "voted_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pr_assessment_id"], name: "index_feedbacks_on_pr_assessment_id"
+    t.index ["user_id", "pr_assessment_id"], name: "index_feedbacks_on_user_id_and_pr_assessment_id", unique: true
+    t.index ["user_id"], name: "index_feedbacks_on_user_id"
+  end
+
+  create_table "jev_requests", force: :cascade do |t|
+    t.integer "repository_id"
+    t.integer "user_id"
+    t.integer "pr_number"
+    t.string "head_sha"
+    t.boolean "fresh", default: false, null: false
+    t.string "state", default: "pending", null: false
+    t.datetime "sent_at"
+    t.integer "input_tokens", default: 0, null: false
+    t.integer "output_tokens", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_jev_requests_on_created_at"
+    t.index ["repository_id", "pr_number", "head_sha"], name: "one_pending_ordinary_analysis", unique: true, where: "state = 'pending' AND fresh = 0"
+    t.index ["repository_id"], name: "index_jev_requests_on_repository_id"
+    t.index ["user_id", "created_at"], name: "index_jev_requests_on_user_id_and_created_at"
+    t.index ["user_id"], name: "index_jev_requests_on_user_id"
+  end
+
+  create_table "oversized_pull_requests", force: :cascade do |t|
+    t.integer "user_id"
     t.string "repo_full_name", null: false
     t.integer "pr_number", null: false
     t.string "head_sha"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "repository_id"
+    t.index ["repository_id", "pr_number", "head_sha"], name: "idx_on_repository_id_pr_number_head_sha_845b4a0443", unique: true
+    t.index ["repository_id"], name: "index_oversized_pull_requests_on_repository_id"
     t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_49d7c0e14b", unique: true
     t.index ["user_id"], name: "index_oversized_pull_requests_on_user_id"
   end
@@ -32,7 +67,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_154251) do
   end
 
   create_table "pr_assessments", force: :cascade do |t|
-    t.integer "user_id", null: false
+    t.integer "user_id"
     t.string "repo_full_name", null: false
     t.integer "pr_number", null: false
     t.string "pr_title", null: false
@@ -52,13 +87,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_154251) do
     t.string "head_sha"
     t.integer "input_tokens", default: 0, null: false
     t.integer "output_tokens", default: 0, null: false
-    t.string "feedback_choice"
-    t.text "feedback_reason"
-    t.datetime "feedback_at"
+    t.integer "repository_id"
+    t.integer "jev_request_id"
     t.index ["created_at"], name: "index_pr_assessments_on_created_at"
+    t.index ["jev_request_id"], name: "index_pr_assessments_on_jev_request_id", unique: true
+    t.index ["repository_id", "pr_number", "head_sha"], name: "idx_on_repository_id_pr_number_head_sha_308ac37bf4"
+    t.index ["repository_id"], name: "index_pr_assessments_on_repository_id"
     t.index ["user_id", "created_at"], name: "index_pr_assessments_on_user_id_and_created_at"
     t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_7bb4f04b72"
     t.index ["user_id"], name: "index_pr_assessments_on_user_id"
+  end
+
+  create_table "repositories", force: :cascade do |t|
+    t.integer "github_id", null: false
+    t.string "full_name", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["github_id"], name: "index_repositories_on_github_id", unique: true
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -82,8 +127,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_154251) do
     t.index ["github_uid"], name: "index_users_on_github_uid", unique: true
   end
 
+  add_foreign_key "feedbacks", "pr_assessments"
+  add_foreign_key "feedbacks", "users"
+  add_foreign_key "jev_requests", "repositories"
+  add_foreign_key "jev_requests", "users"
+  add_foreign_key "oversized_pull_requests", "repositories"
   add_foreign_key "oversized_pull_requests", "users"
   add_foreign_key "pinned_repositories", "users"
+  add_foreign_key "pr_assessments", "jev_requests"
+  add_foreign_key "pr_assessments", "repositories"
   add_foreign_key "pr_assessments", "users"
   add_foreign_key "sessions", "users"
 end

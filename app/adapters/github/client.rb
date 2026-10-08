@@ -7,7 +7,7 @@ module Github
     class Unauthorized < Error; end
     class NotFound < Error; end
 
-    Repository = Data.define(:full_name, :name, :owner, :private, :description, :pushed_at)
+    Repository = Data.define(:github_id, :full_name, :name, :owner, :private, :description, :pushed_at)
     PullRequest = Data.define(:number, :title, :body, :html_url, :draft, :author_login, :author_avatar_url,
                               :base_ref, :head_ref, :head_sha, :additions, :deletions, :changed_files, :updated_at)
     FileChange = Data.define(:filename, :previous_filename, :status, :additions, :deletions, :patch)
@@ -28,6 +28,7 @@ module Github
       query($owner: String!, $name: String!, $byNumber: Boolean!, $number: Int!,
             $byTitle: Boolean!, $titleSearch: String!, $byAuthor: Boolean!, $authorSearch: String!) {
         repository(owner: $owner, name: $name) {
+          databaseId
           pullRequests(states: OPEN, first: 100, orderBy: { field: UPDATED_AT, direction: DESC }) {
             nodes { ...PullRequestFields }
           }
@@ -56,25 +57,33 @@ module Github
       end
     end
 
-    # Repositories the user can access, most recently pushed first, filtered by name.
-    def repositories(query: nil)
-      repos = Rails.cache.fetch([ "github/repositories", token_digest ], expires_in: 5.minutes) do
-        paginate("/user/repos", { sort: "pushed", affiliation: "owner,collaborator,organization_member" }).map do |r|
-          Repository.new(full_name: r["full_name"], name: r["name"], owner: r.dig("owner", "login"),
-                         private: r["private"], description: r["description"], pushed_at: time(r["pushed_at"]))
-        end
+    # The cached picker list is discovery, not authorization. History asks for a fresh list.
+    def repositories(query: nil, fresh: false)
+      repos = Rails.cache.fetch([ "github/repositories/v2", token_digest ], expires_in: 5.minutes, force: fresh) do
+        paginate("/user/repos", { sort: "pushed", affiliation: "owner,collaborator,organization_member" }).map { |r| repository_from(r) }
       end
 
       filter(repos, query) { |repo| repo.full_name }
     end
 
+    # Uncached, with this viewer's token. Stable IDs keep renames and name reuse separate.
+    def repository(identity)
+      repo = repository_from(get(repository_path(identity)).body)
+      raise NotFound, "That repository isn't visible to you." if identity.is_a?(Integer) && repo.github_id != identity
+
+      repo
+    end
+
     # Open pull requests, most recently updated first, filtered by title, number or author.
     # Without a query it's the 100 most recently updated; a query also reaches older ones.
-    def pull_requests(full_name, query: nil)
+    def pull_requests(full_name, query: nil, github_id: nil)
       owner, name = split_full_name(full_name)
       data = graphql(OPEN_PULL_REQUESTS_QUERY, { owner: owner, name: name, **search_variables(full_name, query) },
                      missing_ok: [ %w[repository numbered] ])
       raise NotFound, "Repository #{full_name} wasn't found or isn't visible to you." if data["repository"].nil?
+      if github_id && data.dig("repository", "databaseId") != github_id
+        raise NotFound, "The repository identity changed. Choose it again from the repository list."
+      end
 
       numbered = data.dig("repository", "numbered")
       # Search results are checked against the repository too, in case GitHub's search strays outside it.
@@ -192,9 +201,28 @@ module Github
         full_name.split("/", 2)
       end
 
+      def repository_from(data)
+        unless data["id"].is_a?(Integer) && data["id"].positive? && data["full_name"].to_s.match?(FULL_NAME) && !data["full_name"].include?("..")
+          raise Error, "GitHub didn't return a valid repository identity."
+        end
+
+        Repository.new(github_id: data["id"], full_name: data["full_name"], name: data["name"], owner: data.dig("owner", "login"),
+                       private: data["private"], description: data["description"], pushed_at: time(data["pushed_at"]))
+      end
+
+      def repository_path(identity)
+        if identity.is_a?(Integer)
+          raise NotFound, "Repository IDs are positive integers." unless identity.positive?
+
+          "/repositories/#{identity}"
+        else
+          owner, name = split_full_name(identity)
+          "/repos/#{owner}/#{name}"
+        end
+      end
+
       def pull_path(full_name, number)
-        owner, name = split_full_name(full_name)
-        "/repos/#{owner}/#{name}/pulls/#{Integer(number, exception: false) || raise(NotFound, "Pull request numbers are whole numbers.")}"
+        "#{repository_path(full_name)}/pulls/#{Integer(number, exception: false) || raise(NotFound, "Pull request numbers are whole numbers.")}"
       end
 
       def time(value)

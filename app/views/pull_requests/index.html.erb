@@ -59,7 +59,7 @@
     <% else %>
       <ul class="flex flex-col p-2" aria-label="Open pull requests in <%= @repo %>">
         <% @pull_requests.each do |pr| %>
-          <li><%= render "pull_requests/row", pr: pr, repo: @repo, previous: @previous_verdicts[pr.number], oversized: @oversized[pr.number] %></li>
+          <li><%= render "pull_requests/row", pr: pr, repo: @repo, previous: @previous_verdicts[pr.number], oversized: @oversized[[pr.number, pr.head_sha]] %></li>
         <% end %>
       </ul>
     <% end %>

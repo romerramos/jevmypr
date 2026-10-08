@@ -1,17 +1,18 @@
 <% verdict = @assessment.verdict %>
-<% content_for :title, "#{verdict[:label]}: #{@assessment.repo_full_name} ##{@assessment.pr_number}" %>
-<% back_url = pull_requests_path_for(@assessment.repo_full_name) %>
+<% repo = @assessment.repository_full_name %>
+<% content_for :title, "#{verdict[:label]}: #{repo} ##{@assessment.pr_number}" %>
+<% back_url = pull_requests_path_for(repo) %>
 
 <div data-controller="hotkey" data-hotkey-key-value="Escape" data-hotkey-url-value="<%= back_url %>" data-action="keydown@window->hotkey#visit">
   <%= link_to back_url, class: "link link-hover inline-flex items-center gap-1.5 text-sm text-base-content/65" do %>
     <%= lucide_icon "arrow-left", class: "size-4", "aria-hidden": true %>
-    Pull requests in <%= @assessment.repo_full_name %>
+    Pull requests in <%= repo %>
   <% end %>
 
   <section class="mt-6 grid items-start gap-14 md:grid-cols-[auto_minmax(0,1fr)] md:gap-12 lg:gap-20">
     <div class="triage-tag-stage max-md:hidden">
       <%= render "shared/triage_tag", verdict: @assessment.choice, tilt: "-4deg",
-            fields: { repo: @assessment.repo_full_name, pr: "##{@assessment.pr_number}", title: @assessment.pr_title } %>
+            fields: { repo: repo, pr: "##{@assessment.pr_number}", title: @assessment.pr_title } %>
     </div>
 
     <div class="min-w-0">
@@ -41,18 +42,26 @@
         <% if @assessment.confidence %>Jev is <%= number_to_percentage(@assessment.confidence * 100, precision: 0) %> confident in this call.<% end %>
         Assessed <%= time_ago_in_words(@assessment.created_at) %> ago with <%= @assessment.jev_model %>.
       </p>
+      <p class="mt-3 max-w-xl text-sm text-base-content/65" aria-label="Verdict privacy">
+        <% if @assessment.repository_id? %>
+          <strong>Shared repository verdict.</strong> People with current GitHub access can read this result for free. Your vote and reason stay private.
+        <% else %>
+          <strong>Private legacy verdict.</strong> Only you can read this snapshot. Asking again creates a new shared verdict; this one stays private.
+        <% end %>
+      </p>
 
       <%#
         Phones: Open on GitHub full width, then Ask again and Another PR side by side.
         Wider screens: one row. Asking again is visible but deliberate (it uses Jev tokens).
       %>
       <div class="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
-        <%= link_to "https://github.com/#{@assessment.repo_full_name}/pull/#{@assessment.pr_number}", target: "_blank", rel: "noopener", class: "btn btn-primary col-span-2" do %>
+        <%= link_to "https://github.com/#{repo}/pull/#{@assessment.pr_number}", target: "_blank", rel: "noopener", class: "btn btn-primary col-span-2" do %>
           <%= lucide_icon "external-link", class: "size-4", "aria-hidden": true %>
           Open on GitHub
         <% end %>
-        <%= form_with url: assessments_path_for(@assessment.repo_full_name, @assessment.pr_number), class: "ask-jev", data: { turbo_frame: "_top" } do %>
-          <button type="submit" class="btn btn-outline w-full" title="Ask Jev for a fresh verdict. Uses Jev tokens.">
+        <%= form_with url: assessments_path_for(repo, @assessment.pr_number), class: "ask-jev", data: { turbo_frame: "_top" } do %>
+          <%= hidden_field_tag :fresh, "1" %>
+          <button type="submit" class="btn btn-outline w-full" title="Ask Jev for a fresh shared verdict. Uses your weekly allowance.">
             <%= lucide_icon "refresh-cw", class: "size-4", "aria-hidden": true %>
             <span class="sm:hidden">Ask again</span><span class="max-sm:hidden">Ask Jev again</span>
           </button>
@@ -63,7 +72,7 @@
         <% end %>
       </div>
 
-      <%= render "feedbacks/feedback", assessment: @assessment %>
+      <%= render "feedbacks/feedback", assessment: @assessment, feedback: @feedback %>
 
       <section class="mt-12 max-w-2xl" aria-labelledby="changed-files">
         <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-base-300 pb-2">
