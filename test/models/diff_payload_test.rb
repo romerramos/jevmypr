@@ -26,7 +26,7 @@ class DiffPayloadTest < ActiveSupport::TestCase
     assert_nil pr.number
     assert_equal [ "Add refunds", "Refund flow", "main", "refunds" ], [ pr.title, pr.body, pr.base_ref, pr.head_ref ]
     assert_equal [ 6, 3, 3 ], [ pr.additions, pr.deletions, pr.changed_files ]
-    assert_equal diff.sha256, pr.head_sha
+    assert_nil pr.head_sha # a sent diff has no commit; diff.sha256 identifies it instead
   end
 
   test "a missing title gets a placeholder" do

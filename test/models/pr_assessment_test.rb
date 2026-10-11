@@ -59,4 +59,64 @@ class PrAssessmentTest < ActiveSupport::TestCase
     assessment.head_sha = "abc"
     assert assessment.valid?
   end
+
+  test "API verdicts have no pull request or owner, and get a token and an expiry" do
+    api = api_verdict
+
+    assert api.valid?, api.errors.full_messages.inspect
+    api.save!
+    assert_match(/\A[1-9A-HJ-NP-Za-km-z]{24}\z/, api.token)
+    assert_not_equal api.token, api_verdict(diff_sha256: "other").tap(&:save!).token
+
+    assert_not api_verdict(user: users(:one)).valid?
+    assert_not api_verdict(repository: Repository.create!(github_id: 991, full_name: "acme/web")).valid?
+    assert_not api_verdict(expires_at: nil).valid?
+    assert_not api_verdict(diff_sha256: nil).valid?
+  end
+
+  test "web verdicts never get a token" do
+    web = users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 1, pr_title: "x", pr_url: "https://github.com/acme/web/pull/1", choice: "no")
+
+    assert_equal "web", web.source
+    assert_nil web.token
+  end
+
+  test "the database refuses API verdicts with an owner and web verdicts without a pull request" do
+    api = api_verdict.tap(&:save!)
+    assert_raises(ActiveRecord::StatementInvalid) { api.update_columns(user_id: users(:one).id) }
+
+    web = users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 1, pr_title: "x", pr_url: "https://github.com/acme/web/pull/1", choice: "no")
+    assert_raises(ActiveRecord::StatementInvalid) { web.update_columns(pr_url: nil) }
+  end
+
+  test "deletes only expired API verdicts" do
+    expired = api_verdict(expires_at: 1.minute.ago).tap(&:save!)
+    live = api_verdict(diff_sha256: "live").tap(&:save!)
+    web = users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 1, pr_title: "x", pr_url: "https://github.com/acme/web/pull/1", choice: "no")
+
+    assert_equal 1, PrAssessment.delete_expired
+    assert_not PrAssessment.exists?(expired.id)
+    assert_equal [ live ], PrAssessment.api.live.to_a
+    assert PrAssessment.exists?(web.id)
+  end
+
+  test "lists and access checks never include API verdicts" do
+    user = users(:one)
+    repo = Repository.create!(github_id: 4242, full_name: "acme/web")
+    shared = repo.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 1, pr_title: "x", head_sha: "abc",
+                                         pr_url: "https://github.com/acme/web/pull/1", choice: "no")
+    api = api_verdict.tap(&:save!)
+    github = Object.new
+    def github.repositories(**) = [ Github::Client::Repository.new(github_id: 4242, full_name: "acme/web", name: "web", owner: "acme",
+                                                                   private: false, description: nil, pushed_at: nil) ]
+
+    assert_equal [ shared ], PrAssessment.accessible_to(user: user, github: github).to_a
+    assert_raises(ActiveRecord::RecordNotFound) { api.verify_access!(user: user, github: github) }
+  end
+
+  private
+    def api_verdict(**attributes)
+      PrAssessment.new({ source: "api", diff_sha256: "abc123", expires_at: PrAssessment::API_LIFETIME.from_now,
+                         pr_title: "Fix typo", choice: "no" }.merge(attributes))
+    end
 end

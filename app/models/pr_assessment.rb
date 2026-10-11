@@ -19,16 +19,36 @@ class PrAssessment < ApplicationRecord
     "no_answer" => { label: "No answer", title: "Jev didn't answer for this file." }
   }.freeze
 
+  SOURCES = %w[web api].freeze
+  # How long a verdict for a diff sent to the open API is kept (and reachable through its token).
+  API_LIFETIME = 30.days
+
   belongs_to :repository, optional: true # Unbound legacy snapshots are retained, not published.
   belongs_to :user, optional: true # Requester attribution is removed on account deletion.
   belongs_to :jev_request, optional: true
   has_many :feedbacks, dependent: :destroy
 
-  validates :repo_full_name, :pr_number, :pr_title, :pr_url, presence: true
-  validates :head_sha, presence: true, if: :repository_id?
+  validates :source, inclusion: { in: SOURCES }
+  validates :pr_title, presence: true
   validates :choice, inclusion: { in: VERDICTS.keys }
-  validates :pr_url, format: { with: %r{\Ahttps://github\.com/[\w.-]+/[\w.-]+/pull/\d+\z}, message: "must be a github.com pull request URL" }
+  # A verdict for a GitHub pull request.
+  with_options if: :web? do
+    validates :repo_full_name, :pr_number, :pr_url, presence: true
+    validates :head_sha, presence: true, if: :repository_id?
+    validates :pr_url, format: { with: %r{\Ahttps://github\.com/[\w.-]+/[\w.-]+/pull/\d+\z}, message: "must be a github.com pull request URL" }
+  end
+  # A verdict for a diff sent to the open API: no repository or requester, only its token reaches it.
+  with_options if: :api? do
+    validates :diff_sha256, :token, :expires_at, presence: true
+    validates :repository, :user, absence: true
+  end
 
+  # Like has_secure_token, but only API verdicts get one, so a web verdict never has a public link.
+  before_validation(on: :create, if: :api?) { self.token ||= SecureRandom.base58(24) }
+
+  scope :web, -> { where(source: "web") }
+  scope :api, -> { where(source: "api") }
+  scope :live, ->(now = Time.current) { where(expires_at: now..) }
   scope :recent, -> { order(created_at: :desc, id: :desc) }
   scope :for_head, ->(pr) { where(pr_number: pr.number, head_sha: pr.head_sha) }
 
@@ -61,10 +81,20 @@ class PrAssessment < ApplicationRecord
     rescue Github::Client::NotFound
       false
     end
-    where(repository_id: ids).or(where(repository_id: nil, user_id: user.id, repo_full_name: legacy_names)).includes(:repository)
+    where(repository_id: ids).or(where(repository_id: nil, user_id: user.id, repo_full_name: legacy_names)).web.includes(:repository)
   end
 
+  # Expired API verdicts, deleted hourly (config/recurring.yml).
+  def self.delete_expired(now: Time.current)
+    api.where(expires_at: ...now).delete_all
+  end
+
+  def web? = source == "web"
+  def api? = source == "api"
+
   def verify_access!(user:, github:)
+    raise ActiveRecord::RecordNotFound if api? # Only its token reaches it.
+
     if repository
       repository.verify_access!(github)
     else
@@ -90,6 +120,30 @@ class PrAssessment < ApplicationRecord
       pr_url: pull_request.html_url,
       pr_author: pull_request.author_login,
       head_sha: pull_request.head_sha,
+      additions: pull_request.additions.to_i,
+      deletions: pull_request.deletions.to_i,
+      changed_files: pull_request.changed_files.to_i,
+      files: result.files.map { |verdict| file_entry(verdict) },
+      choice: decision.choice,
+      probabilities: decision.probabilities,
+      confidence: decision.confidence,
+      jev_model: decision.model,
+      diff_truncated: result.diff_truncated,
+      input_tokens: result.usage["input_tokens"].to_i,
+      output_tokens: result.usage["output_tokens"].to_i
+    )
+  end
+
+  # A diff sent to the open API: its title, line counts, file metadata and verdicts. No description or patches.
+  def self.from_diff_result(diff:, result:, now: Time.current)
+    pull_request = result.pull_request
+    decision = result.decision
+
+    new(
+      source: "api",
+      diff_sha256: diff.sha256,
+      expires_at: now + API_LIFETIME,
+      pr_title: pull_request.title,
       additions: pull_request.additions.to_i,
       deletions: pull_request.deletions.to_i,
       changed_files: pull_request.changed_files.to_i,

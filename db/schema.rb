@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_160000) do
   create_table "feedbacks", force: :cascade do |t|
     t.integer "pr_assessment_id", null: false
     t.integer "user_id", null: false
@@ -38,7 +38,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_140000) do
     t.datetime "updated_at", null: false
     t.string "source", default: "web", null: false
     t.string "ip_digest"
+    t.string "diff_sha256"
     t.index ["created_at"], name: "index_jev_requests_on_created_at"
+    t.index ["diff_sha256"], name: "one_pending_ordinary_diff_analysis", unique: true, where: "state = 'pending' AND fresh = 0 AND diff_sha256 IS NOT NULL"
     t.index ["ip_digest", "created_at"], name: "index_jev_requests_on_ip_digest_and_created_at"
     t.index ["repository_id", "pr_number", "head_sha"], name: "one_pending_ordinary_analysis", unique: true, where: "state = 'pending' AND fresh = 0"
     t.index ["repository_id"], name: "index_jev_requests_on_repository_id"
@@ -72,10 +74,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_140000) do
 
   create_table "pr_assessments", force: :cascade do |t|
     t.integer "user_id"
-    t.string "repo_full_name", null: false
-    t.integer "pr_number", null: false
+    t.string "repo_full_name"
+    t.integer "pr_number"
     t.string "pr_title", null: false
-    t.string "pr_url", null: false
+    t.string "pr_url"
     t.string "pr_author"
     t.integer "additions", default: 0, null: false
     t.integer "deletions", default: 0, null: false
@@ -93,13 +95,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_140000) do
     t.integer "output_tokens", default: 0, null: false
     t.integer "repository_id"
     t.integer "jev_request_id"
+    t.string "source", default: "web", null: false
+    t.string "diff_sha256"
+    t.string "token"
+    t.datetime "expires_at"
     t.index ["created_at"], name: "index_pr_assessments_on_created_at"
+    t.index ["diff_sha256", "created_at"], name: "index_pr_assessments_on_diff_sha256_and_created_at"
+    t.index ["expires_at"], name: "index_pr_assessments_on_expires_at"
     t.index ["jev_request_id"], name: "index_pr_assessments_on_jev_request_id", unique: true
     t.index ["repository_id", "pr_number", "head_sha"], name: "idx_on_repository_id_pr_number_head_sha_308ac37bf4"
     t.index ["repository_id"], name: "index_pr_assessments_on_repository_id"
+    t.index ["token"], name: "index_pr_assessments_on_token", unique: true
     t.index ["user_id", "created_at"], name: "index_pr_assessments_on_user_id_and_created_at"
     t.index ["user_id", "repo_full_name", "pr_number"], name: "idx_on_user_id_repo_full_name_pr_number_7bb4f04b72"
     t.index ["user_id"], name: "index_pr_assessments_on_user_id"
+    t.check_constraint "source <> 'api' OR (repository_id IS NULL AND user_id IS NULL AND diff_sha256 IS NOT NULL AND token IS NOT NULL AND expires_at IS NOT NULL)", name: "api_verdicts_have_no_owner"
+    t.check_constraint "source = 'api' OR (repo_full_name IS NOT NULL AND pr_number IS NOT NULL AND pr_url IS NOT NULL)", name: "web_verdicts_have_a_pull_request"
   end
 
   create_table "repositories", force: :cascade do |t|

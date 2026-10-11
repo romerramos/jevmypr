@@ -165,7 +165,7 @@ class PrReviewDeciderTest < ActiveSupport::TestCase
     error = assert_raises(PrReviewDecider::TooLarge) do
       PrReviewDecider.new(github: nil, jev: jev).decide(nil, nil, pull_request: diff.pull_request, files: diff.files)
     end
-    assert_equal diff.sha256, error.pull_request.head_sha
+    assert_equal diff.pull_request, error.pull_request
     assert_equal "This diff is too big for Jev to read in one go.", error.message
   end
 end
