@@ -67,8 +67,9 @@ Jev my PR only uses your data to answer the question above.
   Patches are sent to Jev but are not stored. The GitHub PR author is repository metadata, not account attribution.
 - **Diffs sent to the [open API](#open-api):** what the caller sends (repository name, title, description, branch
   names, file list and patches) goes to Jev the same way. Only the diff's SHA-256 hash, its file names and the
-  verdicts are kept, in the cache for 7 days, plus anonymous token usage. No patches, accounts or IP addresses are
-  stored; the IP address only keys a one-minute rate-limit counter.
+  verdicts are kept, in the cache for 7 days, plus anonymous token usage. No patches or accounts are stored, and IP
+  addresses never are: each request keeps a keyed hash of the caller's IP address for 2 days, for the daily limit
+  below, and the address itself only keys a one-minute rate-limit counter.
 - **Who can read it:** repository verdicts and PR/file metadata are shared with people whose own GitHub token
   currently has repository access. Your profile, token, sessions, pins, votes and reasons are not shared with them.
 - **Not done:** no analytics, no trackers, no third-party scripts or fonts, nothing sold. The only other
@@ -91,7 +92,12 @@ Jev my PR is free and runs on a small monthly budget, so there are limits (see
 - **5 new-analysis requests per minute** per user; reading or reusing a result does not use this limit.
 - GitHub accounts **younger than 30 days** can look around but can't ask Jev (keeps bots out).
 - New verdicts **pause for everyone** once the month's estimated Jev spend reaches the budget, until the 1st.
-- The [open API](#open-api) allows **5 calls per minute per IP address** and shares the monthly budget.
+- The [open API](#open-api) has its own, tighter limits, per IP address since it needs no sign-in:
+  - **2 calls per minute**, counting every call.
+  - **10 new verdicts in any 24 hours.** A diff that already has a verdict gets it again without using this.
+  - **A quarter of the monthly budget.** Once the API has spent it, the API pauses until the 1st; signed-in use
+    carries on.
+  - Request bodies over 2 MB are refused before they're read.
 
 ## Open API
 
@@ -140,10 +146,12 @@ Errors come as `{ "error": "<code>", "message": "..." }`:
 |---|---|---|
 | 400 | `invalid_json` | The body isn't JSON. |
 | 422 | `invalid_diff` | The diff isn't valid; `details` lists every problem. |
+| 413 | `body_too_large` | The request body is over 2 MB. |
 | 413 | `too_large` | The diff is too big for Jev to read in one go. |
 | 409 | `in_progress` | The same diff is already being assessed. See `Retry-After`. |
-| 429 | `rate_limited` | Too many calls from this IP address. See `Retry-After`. |
-| 503 | `budget_paused` | This month's budget is spent. `Retry-After` points at the 1st. |
+| 429 | `rate_limited` | Over 2 calls a minute from this IP address. See `Retry-After`. |
+| 429 | `not_allowed` | This IP address has used its new verdicts for today. See `Retry-After`. |
+| 503 | `budget_paused` | This month's budget, or the API's share of it, is spent. `Retry-After` points at the 1st. |
 | 502 | `jev_unavailable` | Jev couldn't answer. |
 
 ## Run it yourself

@@ -25,6 +25,7 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
     request = JevRequest.order(:id).last
     assert_equal [ nil, nil, nil, "succeeded", 10, 2 ], request.values_at(:user_id, :repository_id, :pr_number, :state, :input_tokens, :output_tokens)
     assert_equal DiffPayload.new(DIFF).sha256, request.head_sha
+    assert_equal [ "api", JevRequest.ip_digest("127.0.0.1") ], request.values_at(:source, :ip_digest)
     assert_equal 0, PrAssessment.where(jev_request: request).count
   end
 
@@ -106,10 +107,46 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
     assert_not_requested :post, Jev::Client::URL
   end
 
+  test "the API pauses once it has spent its share of the budget" do
+    budget = JevAllowance::LIMITS.monthly_budget_usd * JevAllowance::LIMITS.api_budget_share
+    JevRequest.create!(source: "api", sent_at: Time.current, state: "succeeded",
+                       input_tokens: (budget / JevAllowance::LIMITS.usd_per_million_input_tokens * 1_000_000).ceil)
+
+    post_diff
+
+    assert_response :service_unavailable
+    assert_equal "budget_paused", response.parsed_body["error"]
+    assert_match "API's share", response.parsed_body["message"]
+    assert_not_requested :post, Jev::Client::URL
+  end
+
+  test "an IP address over its daily cap gets 429 with Retry-After" do
+    created_at = 2.hours.ago
+    JevAllowance::LIMITS.api_daily_verdicts_per_ip.times do
+      JevRequest.create!(source: "api", ip_digest: JevRequest.ip_digest("127.0.0.1"), sent_at: created_at, created_at: created_at, state: "succeeded")
+    end
+
+    post_diff
+
+    assert_response :too_many_requests
+    assert_equal "not_allowed", response.parsed_body["error"]
+    assert_match "This IP address has used all", response.parsed_body["message"]
+    assert_in_delta 22.hours, response.headers["Retry-After"].to_i, 5
+    assert_not_requested :post, Jev::Client::URL
+  end
+
+  test "an oversized body is refused before it is read" do
+    post_diff(+"x" * (Api::VerdictsController::MAX_BODY_BYTES + 1))
+
+    assert_response :content_too_large
+    assert_equal "body_too_large", response.parsed_body["error"]
+    assert_not_requested :post, Jev::Client::URL
+  end
+
   test "too many calls from one IP get 429" do
     stub_jev(choice: "no")
 
-    JevAllowance::LIMITS.asks_per_minute_per_user.times { post_diff }
+    JevAllowance::LIMITS.api_asks_per_minute_per_ip.times { post_diff }
     assert_response :success
     post_diff
 

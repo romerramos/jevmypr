@@ -76,7 +76,7 @@ class PrAssessmentCreatorTest < ActiveSupport::TestCase
 
   test "a sent diff coalesces with no user or repository and is reused from the cache" do
     diff = DiffPayload.new(title: "Fix typo", files: [ { filename: "README.md", patch: "+the" } ])
-    diff_creator = -> { PrAssessmentCreator.new(user: nil, repository: nil, github: nil, jev: @jev) }
+    diff_creator = -> { PrAssessmentCreator.new(user: nil, repository: nil, github: nil, jev: @jev, ip_digest: "test-ip") }
 
     with_memory_cache do
       @worker = Thread.new { ActiveRecord::Base.connection_pool.with_connection { diff_creator.call.call_for_diff(diff) } }
@@ -91,7 +91,7 @@ class PrAssessmentCreatorTest < ActiveSupport::TestCase
       assert_equal [ "no", 0.8 ], [ verdict.choice, verdict.confidence ]
       assert_equal verdict, diff_creator.call.call_for_diff(diff)
       request = JevRequest.where(head_sha: diff.sha256).sole
-      assert_equal [ nil, nil, "succeeded", 1234 ], request.values_at(:user_id, :repository_id, :state, :input_tokens)
+      assert_equal [ nil, nil, "succeeded", 1234, "api", "test-ip" ], request.values_at(:user_id, :repository_id, :state, :input_tokens, :source, :ip_digest)
     end
   ensure
     JevRequest.where(head_sha: diff.sha256).delete_all

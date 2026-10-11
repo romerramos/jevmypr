@@ -52,13 +52,45 @@ class JevAllowanceTest < ActiveSupport::TestCase
     assert_equal Time.zone.parse("2026-10-01"), denial.retry_at
   end
 
-  test "anonymous callers only go through the monthly budget" do
+  test "anonymous callers need an IP hash and skip the signed-in checks" do
+    assert_raises(ArgumentError) { JevAllowance.new(nil, now: @now) }
+
     limits = JevAllowance::LIMITS.with(monthly_budget_usd: 0.001)
     JevAllowance::LIMITS.weekly_verdicts_per_user.times { |i| JevRequest.create!(state: "succeeded", sent_at: @now - 1.hour, pr_number: i) }
-    assert JevAllowance.new(nil, now: @now, limits: limits).allowed?
+    assert JevAllowance.new(nil, ip_digest: "ip-a", now: @now, limits: limits).allowed?
 
     verdict(users(:two), at: @now - 1.hour, number: 1, input_tokens: 30_000)
-    assert_equal :monthly_budget, JevAllowance.new(nil, now: @now, limits: limits).denial.reason
+    assert_equal :monthly_budget, JevAllowance.new(nil, ip_digest: "ip-a", now: @now, limits: limits).denial.reason
+  end
+
+  test "caps new API verdicts per IP address in any 24 hours" do
+    limit = JevAllowance::LIMITS.api_daily_verdicts_per_ip
+    (limit - 1).times { api_request("ip-a", at: @now - 2.hours) }
+    api_request("ip-a", at: @now - 25.hours) # outside the window
+    api_request("ip-a", at: @now - 1.hour, state: "failed", sent: false) # failed before Jev was called
+    api_request("ip-b", at: @now - 1.hour)
+    assert JevAllowance.new(nil, ip_digest: "ip-a", now: @now).allowed?
+
+    api_request("ip-a", at: @now - 23.hours)
+    denial = JevAllowance.new(nil, ip_digest: "ip-a", now: @now).denial
+    assert_equal :api_daily_quota, denial.reason
+    assert_match "all #{limit} new verdicts for today", denial.message
+    assert_equal @now + 1.hour, denial.retry_at
+    assert JevAllowance.new(nil, ip_digest: "ip-b", now: @now).allowed?
+    assert JevAllowance.new(@user, now: @now).allowed?
+  end
+
+  test "pauses the API, but not signed-in users, once it has spent its share of the budget" do
+    limits = JevAllowance::LIMITS.with(monthly_budget_usd: 1.0, api_budget_share: 0.25)
+    api_request("ip-b", at: @now - 1.hour, input_tokens: 5_000_000) # $0.21
+    verdict(users(:two), at: @now - 1.hour, number: 1, input_tokens: 10_000_000) # $0.42 of signed-in use doesn't count
+    assert JevAllowance.new(nil, ip_digest: "ip-a", now: @now, limits: limits).allowed?
+
+    api_request("ip-b", at: @now - 1.hour, input_tokens: 1_000_000) # $0.252 in total
+    denial = JevAllowance.new(nil, ip_digest: "ip-a", now: @now, limits: limits).denial
+    assert_equal :api_budget, denial.reason
+    assert_match "paused until October 1, 2026", denial.message
+    assert JevAllowance.new(@user, now: @now, limits: limits).allowed?
   end
 
   test "estimates spend from Jev's token counts" do
@@ -88,6 +120,10 @@ class JevAllowanceTest < ActiveSupport::TestCase
   end
 
   private
+    def api_request(ip_digest, at:, state: "succeeded", sent: true, input_tokens: 0)
+      JevRequest.create!(source: "api", ip_digest: ip_digest, state: state, sent_at: (at if sent), created_at: at, input_tokens: input_tokens)
+    end
+
     def verdict(user, at:, number:, input_tokens: 0, output_tokens: 0)
       user.jev_requests.create!(state: "succeeded", sent_at: at, created_at: at, pr_number: number,
                                 input_tokens: input_tokens, output_tokens: output_tokens)
