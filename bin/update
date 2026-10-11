@@ -1,43 +1,25 @@
 #!/usr/bin/env ruby
-# Updates this checkout to a release and prepares it to run: the way a server moves between releases.
+# Updates this checkout to a release: the way a server moves between releases.
 #
-#   bin/update            # the latest release
-#   bin/update v0.2.0     # a specific release (also how you roll back)
+#   bin/update                 # the latest release
+#   bin/update v0.2.0          # a specific release (also how you roll back)
+#   bin/update --no-restart    # update, but leave the restart for later
 #
-# Fetches tags, checks out the release (a detached HEAD, which is normal for deploys), installs gems,
-# runs migrations and precompiles assets in the current RAILS_ENV. Restarting the app is up to you
-# (it's specific to each server; see AGENTS.md → Deploying a release).
-require "open3"
+# Always: fetches tags, checks out the release (a detached HEAD, which is normal for deploys), installs gems,
+# runs migrations and precompiles assets (in production).
+#
+# On a server, config/server.yml (copy config/server.example.yml) makes it the whole deploy: it loads the app's
+# environment, backs up the database first, restarts the app, waits until /up answers with the new version, and
+# switches back to the previous release if it doesn't. See AGENTS.md → Deploying a release.
+require_relative "../lib/release_update"
 
-Dir.chdir(File.expand_path("..", __dir__))
+$stdout.sync = true # keep our lines in order with the commands' own output
 
-def sh(*cmd, env: {})
-  puts "→ #{cmd.join(" ")}"
-  system(env, *cmd) || abort("✗ `#{cmd.join(" ")}` failed.")
+restart = !ARGV.delete("--no-restart")
+abort("Usage: bin/update [vX.Y.Z|latest] [--no-restart]") if ARGV.size > 1 || ARGV.first&.start_with?("-")
+
+begin
+  ReleaseUpdate.new(root: File.expand_path("..", __dir__), wanted: ARGV.first, restart: restart).call
+rescue ReleaseUpdate::Failure => error
+  abort("✗ #{error.message}")
 end
-
-def capture(*cmd)
-  out, status = Open3.capture2(*cmd)
-  status.success? ? out.strip : abort("✗ `#{cmd.join(" ")}` failed.")
-end
-
-abort("✗ There are uncommitted changes to tracked files; resolve them first:\n#{capture("git", "status", "--short", "--untracked-files=no")}") \
-  unless capture("git", "status", "--porcelain", "--untracked-files=no").empty?
-
-sh("git", "fetch", "--quiet", "--tags", "--force", "origin")
-wanted = ARGV.first.to_s.strip
-tag = if wanted.empty? || wanted == "latest"
-  capture("git", "tag", "--list", "v[0-9]*", "--sort=-v:refname").lines.first&.strip or abort("✗ No releases yet.")
-else
-  wanted.start_with?("v") ? wanted : "v#{wanted}"
-end
-abort("✗ There's no release #{tag}. Available: #{capture("git", "tag", "--list", "v[0-9]*", "--sort=-v:refname").lines.first(5).map(&:strip).join(", ")}") \
-  if capture("git", "tag", "--list", tag).empty?
-
-before = File.read("VERSION").strip
-sh("git", "checkout", "--quiet", tag)
-sh("bundle", "install", "--quiet")
-sh("bin/rails", "db:migrate")
-sh("bin/rails", "assets:precompile") if ENV.fetch("RAILS_ENV", "development") == "production"
-
-puts "✓ Now on #{tag} (was v#{before}) in #{ENV.fetch("RAILS_ENV", "development")}. Restart the app to serve it."

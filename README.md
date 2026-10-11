@@ -224,8 +224,10 @@ own credentials), and use a cache store for rate limiting (the Rails 8 default, 
 
 Releases follow [semantic versioning](https://semver.org): the current version is in [`VERSION`](VERSION), shown
 next to the logo, and each release is a `vX.Y.Z` tag with notes on the
-[releases page](https://github.com/romerramos/jevmypr/releases). `bin/release` cuts one and `bin/update` moves a
-server checkout to a release; [AGENTS.md](AGENTS.md) describes both, for people and coding agents.
+[releases page](https://github.com/romerramos/jevmypr/releases). `bin/release` cuts one and `bin/update` deploys it on a server
+that runs the app from a git checkout (backup, update, restart, health check and automatic rollback, set up in
+[`config/server.example.yml`](config/server.example.yml)); [AGENTS.md](AGENTS.md) describes both, for people and
+coding agents.
 
 ## Built with
 
