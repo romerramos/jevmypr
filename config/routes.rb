@@ -20,6 +20,11 @@ Rails.application.routes.draw do
   resources :assessments, only: %i[ index show ] do
     resource :feedback, only: %i[ edit update destroy ]
   end
+
+  # The open JSON API (no sign-in): POST a diff, get Jev's verdict.
+  namespace :api, defaults: { format: :json } do
+    resources :verdicts, only: :create
+  end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

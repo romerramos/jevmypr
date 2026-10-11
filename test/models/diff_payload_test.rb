@@ -63,6 +63,11 @@ class DiffPayloadTest < ActiveSupport::TestCase
     assert_not payload(description: "a" * (DiffPayload::MAX_DESCRIPTION_LENGTH + 1)).valid?
     assert_not payload(repository: { name: "web" }).valid?
     assert_not payload(head_branch: [ "main" ]).valid?
+
+    diff = payload(title: "a" * (DiffPayload::MAX_TITLE_LENGTH + 1), files: [ { filename: "a.rb", status: "deleted" } ])
+    assert_not diff.valid?
+    assert_equal [ "Title is too long (at most 300 characters)", "files[0].status must be one of #{DiffPayload::STATUSES.to_sentence(last_word_connector: ' or ')}" ],
+                 diff.error_messages
   end
 
   test "refuses patches far beyond what Jev reads" do

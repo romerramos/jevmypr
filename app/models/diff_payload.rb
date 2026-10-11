@@ -1,5 +1,5 @@
-# A diff sent without a GitHub pull request behind it (for example by Dynamic Code Reviews), turned into
-# the pull request and file objects Github::Client returns, so PrReviewDecider can read it with no GitHub call:
+# A diff sent without a GitHub pull request behind it, turned into the pull request and file objects
+# Github::Client returns, so PrReviewDecider can read it with no GitHub call:
 #
 #   payload = DiffPayload.new(title: "Add refunds", files: [ { filename: "app/refund.rb", status: "added", patch: "@@ ..." } ])
 #   PrReviewDecider.new(github: nil).decide(payload.repository, nil, pull_request: payload.pull_request, files: payload.files) if payload.valid?
@@ -55,6 +55,11 @@ class DiffPayload
   # Stands in for the head commit, which a sent diff doesn't have.
   def sha256
     @sha256 ||= Digest::SHA256.hexdigest(files.map { |f| [ f.filename, f.previous_filename, f.status, f.patch ] }.to_json)
+  end
+
+  # Full messages, without repeating "Files" before a message about one file ("files[2].status must be ...").
+  def error_messages
+    errors.map { |error| error.message.start_with?("files[") ? error.message : error.full_message }
   end
 
   private

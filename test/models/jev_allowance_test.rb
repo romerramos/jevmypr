@@ -33,6 +33,7 @@ class JevAllowanceTest < ActiveSupport::TestCase
     denial = JevAllowance.new(@user, now: @now).denial
     assert_equal :account_too_new, denial.reason
     assert_match "October 16, 2026", denial.message
+    assert_equal @now + 20.days, denial.retry_at
 
     @user.update!(github_created_at: nil)
     assert JevAllowance.new(@user, now: @now).allowed?
@@ -48,6 +49,16 @@ class JevAllowanceTest < ActiveSupport::TestCase
     denial = JevAllowance.new(@user, now: @now, limits: limits).denial
     assert_equal :monthly_budget, denial.reason
     assert_match "paused until October 1, 2026", denial.message
+    assert_equal Time.zone.parse("2026-10-01"), denial.retry_at
+  end
+
+  test "anonymous callers only go through the monthly budget" do
+    limits = JevAllowance::LIMITS.with(monthly_budget_usd: 0.001)
+    JevAllowance::LIMITS.weekly_verdicts_per_user.times { |i| JevRequest.create!(state: "succeeded", sent_at: @now - 1.hour, pr_number: i) }
+    assert JevAllowance.new(nil, now: @now, limits: limits).allowed?
+
+    verdict(users(:two), at: @now - 1.hour, number: 1, input_tokens: 30_000)
+    assert_equal :monthly_budget, JevAllowance.new(nil, now: @now, limits: limits).denial.reason
   end
 
   test "estimates spend from Jev's token counts" do

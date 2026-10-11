@@ -1,8 +1,10 @@
 # Whether a user may ask Jev for a new verdict right now, and if not, why and until when.
 # Checks, in order: GitHub account age (bot filter), the user's weekly quota, and the app's
 # monthly budget. Re-reading saved verdicts never goes through here.
+# Anonymous callers (the open API, user nil) only go through the monthly budget for now.
 class JevAllowance
-  Denial = Data.define(:reason, :message)
+  # retry_at: when asking again can work.
+  Denial = Data.define(:reason, :message, :retry_at)
 
   # The limits that keep Jev my PR free to use and within its monthly budget. Tune them here.
   # Jev's price is $42 per billion input tokens (typesafe.ai); output pricing isn't published and each
@@ -24,6 +26,8 @@ class JevAllowance
   end
 
   def denial
+    return monthly_budget_spent if @user.nil?
+
     account_too_new || weekly_quota_used || monthly_budget_spent
   end
 
@@ -47,9 +51,9 @@ class JevAllowance
       created = @user.github_created_at
       return if created.nil? || created <= @now - @limits.min_github_account_age
 
-      opens_on = (created + @limits.min_github_account_age).to_date
+      opens_at = created + @limits.min_github_account_age
       Denial.new(:account_too_new, "To keep bots out, asking Jev needs a GitHub account that's at least " \
-                                   "#{@limits.min_github_account_age.inspect} old. Yours will be on #{long_date(opens_on)}.")
+                                   "#{@limits.min_github_account_age.inspect} old. Yours will be on #{long_date(opens_at.to_date)}.", opens_at)
     end
 
     def weekly_quota_used
@@ -58,14 +62,15 @@ class JevAllowance
       frees_up = weekly_verdicts.minimum(:created_at) + 7.days
       Denial.new(:weekly_quota, "You've used all #{weekly_limit} verdicts for this week. The next one frees up " \
                                 "in #{ActionController::Base.helpers.distance_of_time_in_words(@now, frees_up)}. " \
-                                "Your saved verdicts are still here.")
+                                "Your saved verdicts are still here.", frees_up)
     end
 
     def monthly_budget_spent
       return if monthly_spend_usd < @limits.monthly_budget_usd
 
+      resumes_at = @now.next_month.beginning_of_month
       Denial.new(:monthly_budget, "Jev's budget for this month is spent, so new verdicts are paused until " \
-                                  "#{long_date(@now.next_month.beginning_of_month)}. Saved verdicts are still here.")
+                                  "#{long_date(resumes_at)}. Saved verdicts are still here.", resumes_at)
     end
 
     def long_date(date) = date.strftime("%B %-d, %Y")
