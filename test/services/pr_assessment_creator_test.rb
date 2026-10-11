@@ -74,6 +74,29 @@ class PrAssessmentCreatorTest < ActiveSupport::TestCase
     assert_in_delta 0.000052542, JevAllowance.new(@teammate).monthly_spend_usd, 1e-12
   end
 
+  test "a sent diff coalesces with no user or repository and is reused from the cache" do
+    diff = DiffPayload.new(title: "Fix typo", files: [ { filename: "README.md", patch: "+the" } ])
+    diff_creator = -> { PrAssessmentCreator.new(user: nil, repository: nil, github: nil, jev: @jev) }
+
+    with_memory_cache do
+      @worker = Thread.new { ActiveRecord::Base.connection_pool.with_connection { diff_creator.call.call_for_diff(diff) } }
+      @worker.report_on_exception = false
+      assert @entered.pop(timeout: 5), "The first request must reserve and reach the simulated Jev call"
+
+      assert_raises(PrAssessmentCreator::InProgress) { diff_creator.call.call_for_diff(diff) }
+      @resume << true
+      assert @worker.join(5)
+
+      verdict = @worker.value
+      assert_equal [ "no", 0.8 ], [ verdict.choice, verdict.confidence ]
+      assert_equal verdict, diff_creator.call.call_for_diff(diff)
+      request = JevRequest.where(head_sha: diff.sha256).sole
+      assert_equal [ nil, nil, "succeeded", 1234 ], request.values_at(:user_id, :repository_id, :state, :input_tokens)
+    end
+  ensure
+    JevRequest.where(head_sha: diff.sha256).delete_all
+  end
+
   private
     def creator(user)
       PrAssessmentCreator.new(user: user, repository: @repository, github: FakeGithub.new(@pull_request), jev: @jev)

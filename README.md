@@ -65,6 +65,10 @@ Jev my PR only uses your data to answer the question above.
   repository ID/name, PR title, URL, author, head commit, file metadata, result and each file's verdict), shared
   too-big marks, request/token usage, your private vote and optional reason, and your pinned repositories.
   Patches are sent to Jev but are not stored. The GitHub PR author is repository metadata, not account attribution.
+- **Diffs sent to the [open API](#open-api):** what the caller sends (repository name, title, description, branch
+  names, file list and patches) goes to Jev the same way. Only the diff's SHA-256 hash, its file names and the
+  verdicts are kept, in the cache for 7 days, plus anonymous token usage. No patches, accounts or IP addresses are
+  stored; the IP address only keys a one-minute rate-limit counter.
 - **Who can read it:** repository verdicts and PR/file metadata are shared with people whose own GitHub token
   currently has repository access. Your profile, token, sessions, pins, votes and reasons are not shared with them.
 - **Not done:** no analytics, no trackers, no third-party scripts or fonts, nothing sold. The only other
@@ -87,6 +91,60 @@ Jev my PR is free and runs on a small monthly budget, so there are limits (see
 - **5 new-analysis requests per minute** per user; reading or reusing a result does not use this limit.
 - GitHub accounts **younger than 30 days** can look around but can't ask Jev (keeps bots out).
 - New verdicts **pause for everyone** once the month's estimated Jev spend reaches the budget, until the 1st.
+- The [open API](#open-api) allows **5 calls per minute per IP address** and shares the monthly budget.
+
+## Open API
+
+Tools such as [Dynamic Code Reviews](https://github.com/romerramos/dynamic-code-reviews) can ask Jev about any
+diff, with no sign-in, cookie or API key: `POST /api/verdicts` with a JSON body.
+
+```sh
+curl -X POST https://jevmypr.romerramos.me/api/verdicts -H "Content-Type: application/json" -d '{
+  "repository": "acme/web",
+  "title": "Fix typo",
+  "description": "teh → the",
+  "base_branch": "main",
+  "head_branch": "typo",
+  "files": [
+    { "filename": "README.md", "status": "modified", "patch": "@@ -1 +1 @@\n-teh\n+the" }
+  ]
+}'
+```
+
+Only `files` is required (1 to 3,000). Each file takes `filename`, and optionally `previous_filename`, `status`
+(`added`, `removed`, `modified`, `renamed`, … as on GitHub; default `modified`), `additions`, `deletions` (counted
+from the patch when left out) and `patch`: that file's hunks, as GitHub shows them, without the `diff --git`, `---`
+and `+++` lines. Patches can add up to 1 MB, but Jev reads whole patches up to 100 KB, in order.
+
+```json
+{
+  "verdict": "none",
+  "confidence": 0.8,
+  "files": [
+    { "filename": "README.md", "verdict": "none" },
+    { "filename": "logo.png", "verdict": null, "skipped": "no_patch" }
+  ],
+  "diff_truncated": false,
+  "url": null
+}
+```
+
+`verdict` is `human`, `llm` or `none`. A file without a verdict says why in `skipped`: `no_patch`, `too_large`
+(left out of the 100 KB), `too_many` (Jev answers for the first 100 files) or `no_answer`. `diff_truncated` is
+true when patches were left out. `url` will link to a verdict page; it is `null` for now. The same diff sent again
+(same files and patches) returns the saved verdict for 7 days without asking Jev.
+
+Errors come as `{ "error": "<code>", "message": "..." }`:
+
+| Status | `error` | When |
+|---|---|---|
+| 400 | `invalid_json` | The body isn't JSON. |
+| 422 | `invalid_diff` | The diff isn't valid; `details` lists every problem. |
+| 413 | `too_large` | The diff is too big for Jev to read in one go. |
+| 409 | `in_progress` | The same diff is already being assessed. See `Retry-After`. |
+| 429 | `rate_limited` | Too many calls from this IP address. See `Retry-After`. |
+| 503 | `budget_paused` | This month's budget is spent. `Retry-After` points at the 1st. |
+| 502 | `jev_unavailable` | Jev couldn't answer. |
 
 ## Run it yourself
 

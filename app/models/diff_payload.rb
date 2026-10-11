@@ -57,6 +57,11 @@ class DiffPayload
     @sha256 ||= Digest::SHA256.hexdigest(files.map { |f| [ f.filename, f.previous_filename, f.status, f.patch ] }.to_json)
   end
 
+  # Full messages, without repeating "Files" before a message about one file ("files[2].status must be ...").
+  def error_messages
+    errors.map { |error| error.message.start_with?("files[") ? error.message : error.full_message }
+  end
+
   private
     # Like `presence`, but leaves badly encoded text in place for the validations to report.
     def blank_to_nil(value)
