@@ -1,0 +1,38 @@
+<% verdict = @assessment.verdict %>
+<% content_for :title, "#{verdict[:label]}: #{@assessment.pr_title}" %>
+<% content_for :head do %><meta name="robots" content="noindex, nofollow"><% end %>
+
+<section class="mt-2 grid items-start gap-14 md:grid-cols-[auto_minmax(0,1fr)] md:gap-12 lg:gap-20">
+  <div class="triage-tag-stage max-md:hidden">
+    <%= render "shared/triage_tag", verdict: @assessment.choice, tilt: "-4deg",
+          fields: { repo: "Sent diff", pr: nil, title: @assessment.pr_title } %>
+  </div>
+
+  <div class="min-w-0">
+    <p class="verdict-badge verdict-badge--<%= @assessment.choice %> mb-5 md:hidden">
+      <%= lucide_icon verdict[:icon], class: "size-4", "aria-hidden": true %>
+      <%= verdict[:label] %>
+    </p>
+    <p class="mb-3 flex min-w-0 items-center gap-1.5 text-sm text-base-content/65">
+      <%= lucide_icon "file-diff", class: "size-4 shrink-0", "aria-hidden": true %>
+      <span class="truncate"><%= @assessment.pr_title %></span>
+    </p>
+
+    <%= render "assessments/verdict", assessment: @assessment %>
+
+    <p class="mt-3 max-w-xl text-sm text-base-content/65" aria-label="Verdict privacy">
+      <strong>Shared by link.</strong> Anyone with this link can see this verdict until
+      <%= @assessment.expires_at.to_date.to_fs(:long) %>. It isn't tied to a GitHub repository or account, and the diff
+      itself was never stored.
+    </p>
+
+    <div class="mt-8 flex flex-wrap items-center gap-3">
+      <%= link_to authenticated? ? repositories_path : new_session_path, class: "btn btn-primary" do %>
+        <%= lucide_icon "tags", class: "size-4", "aria-hidden": true %>
+        Triage your own pull requests
+      <% end %>
+    </div>
+
+    <%= render "assessments/files", assessment: @assessment %>
+  </div>
+</section>

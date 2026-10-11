@@ -16,8 +16,10 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
     post_diff
 
     assert_response :success
-    assert_equal({ "verdict" => "human", "confidence" => 0.72, "diff_truncated" => false, "url" => nil,
+    saved = PrAssessment.api.sole
+    assert_equal({ "verdict" => "human", "confidence" => 0.72, "diff_truncated" => false, "url" => verdict_url(saved.token),
                    "files" => [ { "filename" => "app/controllers/sessions_controller.rb", "verdict" => "human" } ] }, response.parsed_body)
+    assert_match %r{\Ahttp://www.example.com/verdicts/[1-9A-HJ-NP-Za-km-z]{24}\z}, response.parsed_body["url"]
     assert_nil response.cookies["session_id"]
     assert_requested :post, Jev::Client::URL, times: 1
     assert_not_requested :any, /api\.github\.com/
@@ -48,6 +50,7 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal "none", response.parsed_body["verdict"]
+    assert_equal verdict_url(PrAssessment.api.sole.token), response.parsed_body["url"] # the same link
     assert_requested :post, Jev::Client::URL, times: 1
   end
 

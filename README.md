@@ -67,11 +67,12 @@ Jev my PR only uses your data to answer the question above.
   Patches are sent to Jev but are not stored. The GitHub PR author is repository metadata, not account attribution.
 - **Diffs sent to the [open API](#open-api):** what the caller sends (repository name, title, description, branch
   names, file list and patches) goes to Jev the same way. Kept for 30 days and then deleted: the diff's SHA-256
-  hash, its title, line counts, file names and statuses, the verdicts, and a random 24-character token for a
-  future link to it; plus anonymous token usage. Not stored: patches, the description, branch and repository
+  hash, its title, line counts, file names and statuses, the verdicts, and a random 24-character token in its
+  link; plus anonymous token usage. **Anyone with the link** can open that verdict page until it expires; it's kept
+  out of search engines and caches. Not stored: patches, the description, branch and repository
   names, or any account. IP addresses aren't stored either: each request keeps a keyed hash of the caller's IP
   address for 2 days, for the daily limit below, and the address itself only keys a one-minute rate-limit counter.
-  These verdicts belong to no repository or user, so they never show up in the app's lists or verdict pages.
+  These verdicts belong to no repository or user, so they never show up in signed-in lists or repository verdicts.
 - **Who can read it:** repository verdicts and PR/file metadata are shared with people whose own GitHub token
   currently has repository access. Your profile, token, sessions, pins, votes and reasons are not shared with them.
 - **Not done:** no analytics, no trackers, no third-party scripts or fonts, nothing sold. The only other
@@ -133,14 +134,15 @@ and `+++` lines. Patches can add up to 1 MB, but Jev reads whole patches up to 1
     { "filename": "logo.png", "verdict": null, "skipped": "no_patch" }
   ],
   "diff_truncated": false,
-  "url": null
+  "url": "https://jevmypr.romerramos.me/verdicts/k3J9xQ2mZ8vR1tLp7wNc4bYd"
 }
 ```
 
 `verdict` is `human`, `llm` or `none`. A file without a verdict says why in `skipped`: `no_patch`, `too_large`
 (left out of the 100 KB), `too_many` (Jev answers for the first 100 files) or `no_answer`. `diff_truncated` is
-true when patches were left out. `url` will link to a verdict page; it is `null` for now. The same diff sent again
-(same files and patches) returns the saved verdict for 30 days without asking Jev.
+true when patches were left out. `url` is the verdict's page: anyone with the link can open it, with no sign-in,
+until the verdict expires. The same diff sent again (same files and patches) returns the saved verdict, and the
+same link, for 30 days without asking Jev.
 
 Errors come as `{ "error": "<code>", "message": "..." }`:
 
