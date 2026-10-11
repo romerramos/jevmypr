@@ -5,12 +5,19 @@ module Api
   #   curl -X POST https://jevmypr.romerramos.me/api/verdicts -H "Content-Type: application/json" \
   #     -d '{"title": "Fix typo", "files": [{"filename": "README.md", "patch": "@@ -1 +1 @@\n-teh\n+the"}]}'
   class VerdictsController < ActionController::API
-    IN_PROGRESS_RETRY_AFTER = 30.seconds
+    # A retry any sooner would only hit the rate limit.
+    IN_PROGRESS_RETRY_AFTER = JevAllowance::LIMITS.api_calls_window
+    # Room for DiffPayload::MAX_PATCH_BYTES of patches once JSON escapes them, and the rest of the payload.
+    MAX_BODY_BYTES = 2 * DiffPayload::MAX_PATCH_BYTES
+    BUDGET_DENIALS = %i[monthly_budget api_budget].freeze
 
     wrap_parameters false
     # Only new verdicts count, but the diff's hash isn't known before the body is read, so every call does here.
-    rate_limit to: JevAllowance::LIMITS.asks_per_minute_per_user, within: 1.minute, by: -> { request.remote_ip },
-      with: -> { render_error :rate_limited, "That's a lot of diffs at once. Wait a minute and try again.", :too_many_requests, retry_at: 1.minute.from_now }
+    rate_limit to: JevAllowance::LIMITS.api_calls_per_ip, within: JevAllowance::LIMITS.api_calls_window, by: -> { request.remote_ip },
+      with: -> { render_error :rate_limited, "That's a lot of diffs at once. Wait #{JevAllowance::LIMITS.api_calls_window.inspect} and try again.",
+                              :too_many_requests, retry_at: JevAllowance::LIMITS.api_calls_window.from_now }
+
+    before_action :reject_oversized_body
 
     rescue_from ActionDispatch::Http::Parameters::ParseError do
       render_error :invalid_json, "The request body isn't valid JSON.", :bad_request
@@ -22,7 +29,8 @@ module Api
         return render_error(:invalid_diff, payload.error_messages.to_sentence, :unprocessable_content, details: payload.error_messages)
       end
 
-      verdict = PrAssessmentCreator.new(user: nil, repository: nil, github: nil, jev: jev).call_for_diff(payload)
+      verdict = PrAssessmentCreator.new(user: nil, repository: nil, github: nil, jev: jev,
+                                        ip_digest: JevRequest.ip_digest(request.remote_ip)).call_for_diff(payload)
       render json: verdict.as_json.merge(url: nil)
     rescue PrReviewDecider::TooLarge
       render_error :too_large, "This diff is too big for Jev to read in one go. It deserves a human review anyway.", :content_too_large
@@ -30,7 +38,7 @@ module Api
       render_error :in_progress, "A verdict for this diff is already being prepared. Try again in a moment.", :conflict,
                    retry_at: IN_PROGRESS_RETRY_AFTER.from_now
     rescue PrAssessmentCreator::NotAllowed => error
-      if error.denial.reason == :monthly_budget
+      if BUDGET_DENIALS.include?(error.denial.reason)
         render_error :budget_paused, error.denial.message, :service_unavailable, retry_at: error.denial.retry_at
       else
         render_error :not_allowed, error.denial.message, :too_many_requests, retry_at: error.denial.retry_at
@@ -40,6 +48,21 @@ module Api
     end
 
     private
+      # Before the body is parsed. A body sent without a length is read only as far as the limit.
+      def reject_oversized_body
+        return if body_size <= MAX_BODY_BYTES
+
+        render_error :body_too_large, "The request body is over #{MAX_BODY_BYTES / 1_000_000} MB. Send at most " \
+                     "#{DiffPayload::MAX_PATCH_BYTES / 1_000_000} MB of patches.", :content_too_large
+      end
+
+      def body_size
+        return request.content_length if request.content_length
+
+        body = request.body or return 0
+        body.read(MAX_BODY_BYTES + 1).to_s.bytesize.tap { body.rewind }
+      end
+
       def jev
         DevelopmentPreview.enabled? ? Jev::PreviewClient.new : Jev::Client.new
       end

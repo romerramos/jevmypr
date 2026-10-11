@@ -18,8 +18,9 @@ class PrAssessmentCreator
     end
   end
 
-  def initialize(user:, repository:, github:, jev:, fresh: false)
-    @user, @repository, @github, @jev, @fresh = user, repository, github, jev, fresh
+  # ip_digest: JevRequest.ip_digest of an anonymous caller, for the API's per-IP allowance.
+  def initialize(user:, repository:, github:, jev:, fresh: false, ip_digest: nil)
+    @user, @repository, @github, @jev, @fresh, @ip_digest = user, repository, github, jev, fresh, ip_digest
   end
 
   def call(pull_request)
@@ -57,12 +58,12 @@ class PrAssessmentCreator
                                    head_sha: @pull_request.head_sha, fresh: false, state: "pending")
         pending.where(created_at: ..JevRequest::RESERVATION_LIFETIME.ago).update_all(state: "failed")
         raise InProgress if !@fresh && pending.exists?
-        if (denial = JevAllowance.new(@user).denial)
+        if (denial = JevAllowance.new(@user, ip_digest: @ip_digest).denial)
           raise NotAllowed, denial
         end
 
         JevRequest.create!(user: @user, repository: @repository, pr_number: @pull_request.number,
-                           head_sha: @pull_request.head_sha, fresh: @fresh)
+                           head_sha: @pull_request.head_sha, fresh: @fresh, source: @diff ? "api" : "web", ip_digest: @ip_digest)
       end
     rescue ActiveRecord::RecordNotUnique
       raise InProgress

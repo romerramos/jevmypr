@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_070000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_140000) do
   create_table "feedbacks", force: :cascade do |t|
     t.integer "pr_assessment_id", null: false
     t.integer "user_id", null: false
@@ -36,9 +36,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_070000) do
     t.integer "output_tokens", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "source", default: "web", null: false
+    t.string "ip_digest"
     t.index ["created_at"], name: "index_jev_requests_on_created_at"
+    t.index ["ip_digest", "created_at"], name: "index_jev_requests_on_ip_digest_and_created_at"
     t.index ["repository_id", "pr_number", "head_sha"], name: "one_pending_ordinary_analysis", unique: true, where: "state = 'pending' AND fresh = 0"
     t.index ["repository_id"], name: "index_jev_requests_on_repository_id"
+    t.index ["source", "sent_at"], name: "index_jev_requests_on_source_and_sent_at"
     t.index ["user_id", "created_at"], name: "index_jev_requests_on_user_id_and_created_at"
     t.index ["user_id"], name: "index_jev_requests_on_user_id"
   end
