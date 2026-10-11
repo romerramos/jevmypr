@@ -5,15 +5,17 @@ module Api
   #   curl -X POST https://jevmypr.romerramos.me/api/verdicts -H "Content-Type: application/json" \
   #     -d '{"title": "Fix typo", "files": [{"filename": "README.md", "patch": "@@ -1 +1 @@\n-teh\n+the"}]}'
   class VerdictsController < ActionController::API
-    IN_PROGRESS_RETRY_AFTER = 30.seconds
+    # A retry any sooner would only hit the rate limit.
+    IN_PROGRESS_RETRY_AFTER = JevAllowance::LIMITS.api_calls_window
     # Room for DiffPayload::MAX_PATCH_BYTES of patches once JSON escapes them, and the rest of the payload.
     MAX_BODY_BYTES = 2 * DiffPayload::MAX_PATCH_BYTES
     BUDGET_DENIALS = %i[monthly_budget api_budget].freeze
 
     wrap_parameters false
     # Only new verdicts count, but the diff's hash isn't known before the body is read, so every call does here.
-    rate_limit to: JevAllowance::LIMITS.api_asks_per_minute_per_ip, within: 1.minute, by: -> { request.remote_ip },
-      with: -> { render_error :rate_limited, "That's a lot of diffs at once. Wait a minute and try again.", :too_many_requests, retry_at: 1.minute.from_now }
+    rate_limit to: JevAllowance::LIMITS.api_calls_per_ip, within: JevAllowance::LIMITS.api_calls_window, by: -> { request.remote_ip },
+      with: -> { render_error :rate_limited, "That's a lot of diffs at once. Wait #{JevAllowance::LIMITS.api_calls_window.inspect} and try again.",
+                              :too_many_requests, retry_at: JevAllowance::LIMITS.api_calls_window.from_now }
 
     before_action :reject_oversized_body
 

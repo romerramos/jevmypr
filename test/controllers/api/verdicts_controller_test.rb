@@ -34,6 +34,7 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
 
     with_memory_cache do
       post_diff
+      travel JevAllowance::LIMITS.api_calls_window + 1.second # past the rate limit
       assert_no_difference -> { JevRequest.count } do
         post_diff(DIFF.merge(title: "Another title"))
       end
@@ -91,7 +92,7 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :conflict
     assert_equal "in_progress", response.parsed_body["error"]
-    assert_equal "30", response.headers["Retry-After"]
+    assert_equal "120", response.headers["Retry-After"]
     assert_not_requested :post, Jev::Client::URL
   end
 
@@ -146,12 +147,12 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
   test "too many calls from one IP get 429" do
     stub_jev(choice: "no")
 
-    JevAllowance::LIMITS.api_asks_per_minute_per_ip.times { post_diff }
+    JevAllowance::LIMITS.api_calls_per_ip.times { post_diff }
     assert_response :success
     post_diff
 
     assert_response :too_many_requests
     assert_equal "rate_limited", response.parsed_body["error"]
-    assert response.headers["Retry-After"].present?
+    assert_equal "120", response.headers["Retry-After"]
   end
 end

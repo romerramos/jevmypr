@@ -12,14 +12,15 @@ class JevAllowance
   # call returns only a few dozen output tokens, so they're priced like input to stay on the safe side.
   LIMITS = Data.define(:weekly_verdicts_per_user, :asks_per_minute_per_user, :min_github_account_age,
                        :monthly_budget_usd, :usd_per_million_input_tokens, :usd_per_million_output_tokens,
-                       :api_asks_per_minute_per_ip, :api_daily_verdicts_per_ip, :api_budget_share).new(
+                       :api_calls_per_ip, :api_calls_window, :api_daily_verdicts_per_ip, :api_budget_share).new(
     weekly_verdicts_per_user: 30,      # about 6 per workday; re-reading a saved verdict is free
     asks_per_minute_per_user: 5,       # stops scripts and double-click storms
     min_github_account_age: 30.days,   # throwaway bot accounts can browse but not ask Jev
     monthly_budget_usd: 18.0,          # pauses new verdicts for everyone until the 1st
     usd_per_million_input_tokens: 0.042,
     usd_per_million_output_tokens: 0.042,
-    api_asks_per_minute_per_ip: 2,     # the open API, counting every call, reused verdicts too
+    api_calls_per_ip: 1,               # the open API: 1 call per IP address every 2 minutes,
+    api_calls_window: 2.minutes,       # counting every call, reused verdicts too
     api_daily_verdicts_per_ip: 10,     # new API verdicts per IP address in any 24 hours
     api_budget_share: 0.25             # the API pauses at a quarter of the monthly budget; signed-in use carries on
   )

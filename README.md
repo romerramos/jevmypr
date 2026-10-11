@@ -93,7 +93,7 @@ Jev my PR is free and runs on a small monthly budget, so there are limits (see
 - GitHub accounts **younger than 30 days** can look around but can't ask Jev (keeps bots out).
 - New verdicts **pause for everyone** once the month's estimated Jev spend reaches the budget, until the 1st.
 - The [open API](#open-api) has its own, tighter limits, per IP address since it needs no sign-in:
-  - **2 calls per minute**, counting every call.
+  - **1 call every 2 minutes**, counting every call.
   - **10 new verdicts in any 24 hours.** A diff that already has a verdict gets it again without using this.
   - **A quarter of the monthly budget.** Once the API has spent it, the API pauses until the 1st; signed-in use
     carries on.
@@ -149,7 +149,7 @@ Errors come as `{ "error": "<code>", "message": "..." }`:
 | 413 | `body_too_large` | The request body is over 2 MB. |
 | 413 | `too_large` | The diff is too big for Jev to read in one go. |
 | 409 | `in_progress` | The same diff is already being assessed. See `Retry-After`. |
-| 429 | `rate_limited` | Over 2 calls a minute from this IP address. See `Retry-After`. |
+| 429 | `rate_limited` | More than 1 call in 2 minutes from this IP address. See `Retry-After`. |
 | 429 | `not_allowed` | This IP address has used its new verdicts for today. See `Retry-After`. |
 | 503 | `budget_paused` | This month's budget, or the API's share of it, is spent. `Retry-After` points at the 1st. |
 | 502 | `jev_unavailable` | Jev couldn't answer. |
