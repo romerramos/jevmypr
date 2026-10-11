@@ -50,3 +50,6 @@
 
 # Machine-specific notes for agents (server paths, restart command); see AGENTS.md
 /AGENTS.local.md
+
+# This server's deploy settings for bin/update; see config/server.example.yml
+/config/server.yml

@@ -59,13 +59,25 @@ When asked to "release this" (or similar):
 
 ## Deploying a release
 
-On a server that runs the app from a git checkout, when asked to "update to the latest release" or
-"update to vX.Y.Z":
+A server runs the app from **one long-lived git checkout**, updated in place by `bin/update`. Don't create
+per-release directories, symlinks or your own deploy steps: if `bin/update` can't do something, fix `bin/update`.
 
-1. Run `bin/update` (latest) or `bin/update vX.Y.Z`. It fetches tags, checks out that release, installs gems,
-   runs migrations and precompiles assets (in production).
-2. Restart the app with this server's restart command (see `AGENTS.local.md`).
-3. Check the version next to the logo, or `cat VERSION`.
+Each server has a gitignored `config/server.yml` (copy `config/server.example.yml`): the app's environment file,
+restart command, health check URL and database backup folder. With it, one command is the whole deploy.
 
-Rolling back is the same command with the previous tag. Read the release's *Upgrade notes* first: a new
-secret or setting has to be in place before restarting.
+When asked to "update to the latest release" or "update to vX.Y.Z":
+
+1. Read the release's *Upgrade notes* (`gh release view vX.Y.Z`). A new secret or setting has to be in place
+   first.
+2. Run `bin/update vX.Y.Z` (or `bin/update` for the latest) as the user that runs the app. In order, it:
+   1. backs up the SQLite databases
+   2. checks out the release, installs gems, runs migrations and precompiles assets, with the app's environment
+   3. restarts the app
+   4. waits until `/up` answers with the new version (its `X-App-Version` header)
+
+   If any step after the backup fails, it goes back to the previous release, restarts it and exits with an
+   error that says so and where the backup is.
+3. Report what it printed. If it went back, don't retry or fix things by hand: report the error.
+
+Rolling back on purpose is the same command with the previous tag. Migrations stay applied, so they have to
+be additive (new columns and tables) unless the release notes say otherwise.

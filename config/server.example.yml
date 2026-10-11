@@ -1,0 +1,25 @@
+# Copy to config/server.yml on a server that runs the app from this git checkout (it's gitignored).
+# With it, bin/update is the whole deploy: backup, update, restart, health check, and back to the previous
+# release if the new one doesn't come up. See AGENTS.md → Deploying a release.
+
+# The app's environment, in KEY=VALUE lines: the same file the service manager loads (e.g. systemd's
+# EnvironmentFile=), so gems, migrations and assets use the app's settings. It must set RAILS_ENV=production.
+environment_file: /etc/jevmypr/production.env
+
+# Extra non-secret variables, if the environment file doesn't have them.
+# environment:
+#   RAILS_ENV: production
+
+# Restarts the app. Run with sh -c, by the user that runs bin/update.
+restart: sudo systemctl restart jevmypr
+
+# Polled after the restart until it answers 200 with the new version in its X-App-Version header.
+health_url: http://127.0.0.1:3000/up
+health_timeout: 60 # seconds
+
+# SQLite databases to back up before every update, relative to this checkout or absolute. Kept outside the
+# checkout; the newest keep_backups sets stay.
+backup_directory: /var/backups/jevmypr
+databases:
+  - storage/production.sqlite3
+keep_backups: 10
