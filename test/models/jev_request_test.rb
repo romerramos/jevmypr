@@ -21,6 +21,14 @@ class JevRequestTest < ActiveSupport::TestCase
     assert_equal "recent", recent.reload.ip_digest
   end
 
+  test "the database allows only one pending ordinary request per sent diff" do
+    JevRequest.create!(source: "api", diff_sha256: "abc")
+    JevRequest.create!(source: "api", diff_sha256: "abc", fresh: true)
+    JevRequest.create!(source: "api", diff_sha256: "abc", state: "failed")
+
+    assert_raises(ActiveRecord::RecordNotUnique) { JevRequest.create!(source: "api", diff_sha256: "abc") }
+  end
+
   test "knows only web and api requests" do
     assert_not JevRequest.new(source: "other").valid?
     assert_equal "web", JevRequest.new.source

@@ -10,6 +10,8 @@ module Api
     # Room for DiffPayload::MAX_PATCH_BYTES of patches once JSON escapes them, and the rest of the payload.
     MAX_BODY_BYTES = 2 * DiffPayload::MAX_PATCH_BYTES
     BUDGET_DENIALS = %i[monthly_budget api_budget].freeze
+    # The API's names for PrAssessment::VERDICTS.
+    VERDICT_NAMES = { "yes" => "human", "llm_enough" => "llm", "no" => "none" }.freeze
 
     wrap_parameters false
     # Only new verdicts count, but the diff's hash isn't known before the body is read, so every call does here.
@@ -29,9 +31,9 @@ module Api
         return render_error(:invalid_diff, payload.error_messages.to_sentence, :unprocessable_content, details: payload.error_messages)
       end
 
-      verdict = PrAssessmentCreator.new(user: nil, repository: nil, github: nil, jev: jev,
+      assessment = PrAssessmentCreator.new(user: nil, repository: nil, github: nil, jev: jev,
                                         ip_digest: JevRequest.ip_digest(request.remote_ip)).call_for_diff(payload)
-      render json: verdict.as_json.merge(url: nil)
+      render json: verdict_json(assessment)
     rescue PrReviewDecider::TooLarge
       render_error :too_large, "This diff is too big for Jev to read in one go. It deserves a human review anyway.", :content_too_large
     rescue PrAssessmentCreator::InProgress
@@ -65,6 +67,15 @@ module Api
 
       def jev
         DevelopmentPreview.enabled? ? Jev::PreviewClient.new : Jev::Client.new
+      end
+
+      # url stays null until verdicts get a public page.
+      def verdict_json(assessment)
+        files = assessment.files.map do |file|
+          { filename: file["filename"], verdict: VERDICT_NAMES[file["choice"]] }.merge(file["skipped"] ? { skipped: file["skipped"] } : {})
+        end
+        { verdict: VERDICT_NAMES.fetch(assessment.choice), confidence: assessment.confidence, files: files,
+          diff_truncated: assessment.diff_truncated, url: nil }
       end
 
       def render_error(code, message, status, retry_at: nil, details: nil)

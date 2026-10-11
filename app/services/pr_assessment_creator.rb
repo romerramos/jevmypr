@@ -2,7 +2,8 @@
 # releases the write lock before any network calls. Explicit fresh requests are separate.
 #
 # A diff sent without a pull request (DiffPayload) goes through the same reservation and allowance check
-# with no user or repository: call_for_diff reuses or records a DiffVerdict, keyed by the diff's hash.
+# with no user or repository: call_for_diff reuses or records an API verdict (PrAssessment with source "api"),
+# keyed by the diff's hash.
 class PrAssessmentCreator
   class InProgress < StandardError
     def initialize
@@ -54,24 +55,31 @@ class PrAssessmentCreator
           end
         end
 
-        pending = JevRequest.where(repository: @repository, pr_number: @pull_request.number,
-                                   head_sha: @pull_request.head_sha, fresh: false, state: "pending")
+        pending = JevRequest.where(**request_key, fresh: false, state: "pending")
         pending.where(created_at: ..JevRequest::RESERVATION_LIFETIME.ago).update_all(state: "failed")
         raise InProgress if !@fresh && pending.exists?
         if (denial = JevAllowance.new(@user, ip_digest: @ip_digest).denial)
           raise NotAllowed, denial
         end
 
-        JevRequest.create!(user: @user, repository: @repository, pr_number: @pull_request.number,
-                           head_sha: @pull_request.head_sha, fresh: @fresh, source: @diff ? "api" : "web", ip_digest: @ip_digest)
+        JevRequest.create!(**request_key, user: @user, fresh: @fresh, source: @diff ? "api" : "web", ip_digest: @ip_digest)
       end
     rescue ActiveRecord::RecordNotUnique
       raise InProgress
     end
 
+    # What one Jev request is about: a pull request's commit, or a sent diff.
+    def request_key
+      if @diff
+        { diff_sha256: @diff.sha256 }
+      else
+        { repository: @repository, pr_number: @pull_request.number, head_sha: @pull_request.head_sha }
+      end
+    end
+
     def saved_verdict
       if @diff
-        DiffVerdict.find(@diff.sha256)
+        PrAssessment.api.live.where(diff_sha256: @diff.sha256).recent.first
       else
         @repository.pr_assessments.for_head(@pull_request).recent.first
       end
@@ -118,8 +126,12 @@ class PrAssessmentCreator
     end
 
     def record_diff_verdict(result)
-      verdict = DiffVerdict.record!(@diff.sha256, result)
-      @request.update!(state: "succeeded")
-      verdict
+      JevRequest.transaction do
+        assessment = PrAssessment.from_diff_result(diff: @diff, result: result)
+        assessment.jev_request = @request
+        assessment.save!
+        @request.update!(state: "succeeded")
+        assessment
+      end
     end
 end

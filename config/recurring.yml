@@ -16,3 +16,6 @@ production:
   forget_jev_request_ips:
     command: "JevRequest.forget_ips"
     schedule: every hour at minute 27
+  delete_expired_api_verdicts:
+    command: "PrAssessment.delete_expired"
+    schedule: every hour at minute 42

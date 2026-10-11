@@ -46,13 +46,12 @@ class DiffPayload
   def pull_request
     @pull_request ||= Github::Client::PullRequest.new(
       number: nil, title: title || DEFAULT_TITLE, body: description, html_url: nil, draft: false,
-      author_login: nil, author_avatar_url: nil, base_ref: base_branch, head_ref: head_branch, head_sha: sha256,
+      author_login: nil, author_avatar_url: nil, base_ref: base_branch, head_ref: head_branch, head_sha: nil,
       additions: files.sum(&:additions), deletions: files.sum(&:deletions), changed_files: files.size, updated_at: nil
     )
   end
 
   # Identifies the change itself (files and patches), so the same diff sent twice can reuse its verdict.
-  # Stands in for the head commit, which a sent diff doesn't have.
   def sha256
     @sha256 ||= Digest::SHA256.hexdigest(files.map { |f| [ f.filename, f.previous_filename, f.status, f.patch ] }.to_json)
   end

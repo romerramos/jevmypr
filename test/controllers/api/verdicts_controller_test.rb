@@ -13,7 +13,7 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
   test "returns a compact verdict for a diff with no session, cookie or API key" do
     stub_jev(choice: "yes", confidence: 0.72)
 
-    with_memory_cache { post_diff }
+    post_diff
 
     assert_response :success
     assert_equal({ "verdict" => "human", "confidence" => 0.72, "diff_truncated" => false, "url" => nil,
@@ -23,26 +23,44 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
     assert_not_requested :any, /api\.github\.com/
 
     request = JevRequest.order(:id).last
-    assert_equal [ nil, nil, nil, "succeeded", 10, 2 ], request.values_at(:user_id, :repository_id, :pr_number, :state, :input_tokens, :output_tokens)
-    assert_equal DiffPayload.new(DIFF).sha256, request.head_sha
-    assert_equal [ "api", JevRequest.ip_digest("127.0.0.1") ], request.values_at(:source, :ip_digest)
-    assert_equal 0, PrAssessment.where(jev_request: request).count
+    assert_equal [ nil, nil, nil, nil, "succeeded", 10, 2 ],
+                 request.values_at(:user_id, :repository_id, :pr_number, :head_sha, :state, :input_tokens, :output_tokens)
+    assert_equal [ "api", DiffPayload.new(DIFF).sha256, JevRequest.ip_digest("127.0.0.1") ], request.values_at(:source, :diff_sha256, :ip_digest)
+
+    # Saved without an owner or a pull request, only its title, counts, file metadata and verdicts.
+    saved = PrAssessment.find_by!(jev_request: request)
+    assert_equal [ "api", nil, nil, nil, nil, nil, "Fix login redirect", "yes" ],
+                 saved.values_at(:source, :user_id, :repository_id, :repo_full_name, :pr_number, :pr_url, :pr_title, :choice)
+    assert_equal request.diff_sha256, saved.diff_sha256
+    assert_match(/\A[1-9A-HJ-NP-Za-km-z]{24}\z/, saved.token)
+    assert_in_delta PrAssessment::API_LIFETIME.from_now, saved.expires_at, 5
+    assert_not saved.files.sole.key?("patch")
   end
 
   test "the same diff sent again reuses its verdict without calling Jev" do
     stub_jev(choice: "no")
 
-    with_memory_cache do
-      post_diff
-      travel JevAllowance::LIMITS.api_calls_window + 1.second # past the rate limit
-      assert_no_difference -> { JevRequest.count } do
-        post_diff(DIFF.merge(title: "Another title"))
-      end
+    post_diff
+    travel JevAllowance::LIMITS.api_calls_window + 1.second # past the rate limit
+    assert_no_difference [ -> { JevRequest.count }, -> { PrAssessment.count } ] do
+      post_diff(DIFF.merge(title: "Another title"))
     end
 
     assert_response :success
     assert_equal "none", response.parsed_body["verdict"]
     assert_requested :post, Jev::Client::URL, times: 1
+  end
+
+  test "an expired verdict isn't reused" do
+    stub_jev(choice: "no")
+
+    post_diff
+    travel PrAssessment::API_LIFETIME + 1.hour
+    post_diff
+
+    assert_response :success
+    assert_requested :post, Jev::Client::URL, times: 2
+    assert_equal 2, PrAssessment.api.count
   end
 
   test "files without a verdict say why" do
@@ -86,7 +104,7 @@ class Api::VerdictsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a diff already being assessed is a conflict with Retry-After" do
-    JevRequest.create!(head_sha: DiffPayload.new(DIFF).sha256)
+    JevRequest.create!(source: "api", diff_sha256: DiffPayload.new(DIFF).sha256)
 
     post_diff
 
