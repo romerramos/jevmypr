@@ -1,0 +1,24 @@
+<%# Jev's verdict: headline, summary, probabilities and confidence. Locals: assessment. %>
+<% verdict = assessment.verdict %>
+<h1 class="font-display text-4xl font-extrabold leading-[1.05] sm:text-5xl"><%= verdict[:headline] %></h1>
+<p class="mt-4 max-w-xl text-lg leading-relaxed text-base-content/75"><%= verdict[:summary] %></p>
+
+<dl class="mt-8 max-w-xl space-y-3" aria-label="How likely Jev thinks each option is">
+  <% assessment.ranked_probabilities.each do |key, option, probability| %>
+    <div class="grid grid-cols-[8.5rem_minmax(0,1fr)_3.5rem] items-center gap-3 <%= "font-semibold" if key == assessment.choice %>">
+      <dt class="flex items-center gap-2 text-sm">
+        <%= lucide_icon option[:icon], class: "size-4 opacity-70", "aria-hidden": true %>
+        <%= option[:label] %>
+      </dt>
+      <dd class="contents">
+        <progress class="progress h-2.5 <%= option[:progress_class] %>" value="<%= (probability * 100).round %>" max="100" aria-hidden="true"></progress>
+        <span class="text-right text-sm tabular-nums"><%= number_to_percentage(probability * 100, precision: 0) %></span>
+      </dd>
+    </div>
+  <% end %>
+</dl>
+
+<p class="mt-4 text-sm text-base-content/60">
+  <% if assessment.confidence %>Jev is <%= number_to_percentage(assessment.confidence * 100, precision: 0) %> confident in this call.<% end %>
+  Assessed <%= time_ago_in_words(assessment.created_at) %> ago with <%= assessment.jev_model %>.
+</p>

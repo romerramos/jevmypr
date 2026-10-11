@@ -69,13 +69,12 @@ module Api
         DevelopmentPreview.enabled? ? Jev::PreviewClient.new : Jev::Client.new
       end
 
-      # url stays null until verdicts get a public page.
       def verdict_json(assessment)
         files = assessment.files.map do |file|
           { filename: file["filename"], verdict: VERDICT_NAMES[file["choice"]] }.merge(file["skipped"] ? { skipped: file["skipped"] } : {})
         end
         { verdict: VERDICT_NAMES.fetch(assessment.choice), confidence: assessment.confidence, files: files,
-          diff_truncated: assessment.diff_truncated, url: nil }
+          diff_truncated: assessment.diff_truncated, url: verdict_url(assessment.token) }
       end
 
       def render_error(code, message, status, retry_at: nil, details: nil)

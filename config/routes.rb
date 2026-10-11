@@ -21,6 +21,9 @@ Rails.application.routes.draw do
     resource :feedback, only: %i[ edit update destroy ]
   end
 
+  # A verdict for a diff sent to the open API, for anyone with its link.
+  resources :verdicts, only: :show, param: :token
+
   # The open JSON API (no sign-in): POST a diff, get Jev's verdict.
   namespace :api, defaults: { format: :json } do
     resources :verdicts, only: :create
