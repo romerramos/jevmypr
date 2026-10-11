@@ -1,6 +1,6 @@
 module Api
-  # The open JSON API: send a diff, get Jev's verdict. No session, cookie or API key, so tools like
-  # Dynamic Code Reviews can call it directly. The same diff sent again reuses its verdict for free.
+  # The open JSON API: send a diff, get Jev's verdict. No session, cookie or API key, so other tools
+  # can call it directly. The same diff sent again reuses its verdict for free.
   #
   #   curl -X POST https://jevmypr.romerramos.me/api/verdicts -H "Content-Type: application/json" \
   #     -d '{"title": "Fix typo", "files": [{"filename": "README.md", "patch": "@@ -1 +1 @@\n-teh\n+the"}]}'

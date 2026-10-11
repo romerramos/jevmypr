@@ -95,8 +95,8 @@ Jev my PR is free and runs on a small monthly budget, so there are limits (see
 
 ## Open API
 
-Tools such as [Dynamic Code Reviews](https://github.com/romerramos/dynamic-code-reviews) can ask Jev about any
-diff, with no sign-in, cookie or API key: `POST /api/verdicts` with a JSON body.
+Other tools can ask Jev about any diff, with no sign-in, cookie or API key: `POST /api/verdicts` with a JSON
+body.
 
 ```sh
 curl -X POST https://jevmypr.romerramos.me/api/verdicts -H "Content-Type: application/json" -d '{

@@ -1,5 +1,5 @@
-# A diff sent without a GitHub pull request behind it (for example by Dynamic Code Reviews), turned into
-# the pull request and file objects Github::Client returns, so PrReviewDecider can read it with no GitHub call:
+# A diff sent without a GitHub pull request behind it, turned into the pull request and file objects
+# Github::Client returns, so PrReviewDecider can read it with no GitHub call:
 #
 #   payload = DiffPayload.new(title: "Add refunds", files: [ { filename: "app/refund.rb", status: "added", patch: "@@ ..." } ])
 #   PrReviewDecider.new(github: nil).decide(payload.repository, nil, pull_request: payload.pull_request, files: payload.files) if payload.valid?
