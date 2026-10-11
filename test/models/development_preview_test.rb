@@ -16,8 +16,11 @@ class DevelopmentPreviewTest < ActiveSupport::TestCase
   test "a sample pull request becomes a saved verdict with file verdicts, without calling GitHub or Jev" do
     result = PrReviewDecider.new(github: Github::PreviewClient.new, jev: Jev::PreviewClient.new).decide("acme/web", 42)
 
-    assessment = PrAssessment.from_result(user: users(:one), repo_full_name: "acme/web", result: result)
+    repository = Repository.from_github!(Github::PreviewClient.new.repository("acme/web"))
+    assessment = PrAssessment.from_result(user: DevelopmentPreview.user, repository: repository, result: result)
     assert assessment.valid?
+    assert_equal(-101, repository.github_id)
+    assert_not Repository.new(github_id: 0, full_name: "acme/zero").valid?
     assert_equal "yes", assessment.choice
     assert_equal 0, assessment.input_tokens
     assert_equal %w[ yes llm_enough yes ], result.files.map { |verdict| verdict.decision.choice }

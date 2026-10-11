@@ -35,13 +35,13 @@ class JevAllowance
 
   # Estimated spend this calendar month across all users, from the token counts Jev reports.
   def monthly_spend_usd
-    tokens = PrAssessment.where(created_at: @now.beginning_of_month..).pick(Arel.sql("SUM(input_tokens), SUM(output_tokens)"))
+    tokens = JevRequest.where(sent_at: @now.beginning_of_month..@now).pick(Arel.sql("SUM(input_tokens), SUM(output_tokens)"))
     input, output = tokens.map(&:to_i)
     (input * @limits.usd_per_million_input_tokens + output * @limits.usd_per_million_output_tokens) / 1_000_000.0
   end
 
   private
-    def weekly_verdicts = @user.pr_assessments.where(created_at: (@now - 7.days)..)
+    def weekly_verdicts = @user.jev_requests.chargeable(@now).where(created_at: (@now - 7.days)..@now)
 
     def account_too_new
       created = @user.github_created_at

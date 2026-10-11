@@ -18,11 +18,12 @@ class AccountMenuTest < ApplicationSystemTestCase
     sign_in_with_github users(:one)
 
     click_on "Account menu"
-    accept_confirm(/This can't be undone/) do
+    accept_confirm(/Shared repository verdicts and PR\/file metadata stay.*This can't be undone/) do
       within("#account-menu") { click_on "Delete my data" }
     end
 
-    assert_text "Your account, verdicts and pins are deleted"
+    assert_text "Your account, token, sessions, pins and private votes are deleted"
+    assert_text "Shared repository verdicts stay, without a link to your account"
     assert_current_path new_session_path
     assert_not User.exists?(users(:one).id)
   end

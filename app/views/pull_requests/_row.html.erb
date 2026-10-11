@@ -34,10 +34,12 @@
     </span>
   </span>
 
-  <span class="hidden shrink-0 text-sm tabular-nums sm:inline">
-    <span class="text-success">+<%= number_with_delimiter(pr.additions) %></span>
-    <span class="text-error">−<%= number_with_delimiter(pr.deletions) %></span>
-  </span>
+  <% if pr.additions %>
+    <span class="hidden shrink-0 text-sm tabular-nums sm:inline">
+      <span class="text-success">+<%= number_with_delimiter(pr.additions) %></span>
+      <span class="text-error">−<%= number_with_delimiter(pr.deletions) %></span>
+    </span>
+  <% end %>
 
   <span class="shrink-0 text-right text-sm font-semibold sm:w-28">
     <span class="hidden sm:inline group-aria-busy:hidden"><%= too_big ? "Too big" : (current ? "View verdict" : (previous ? "Ask again" : "Ask Jev")) %></span>

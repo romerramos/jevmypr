@@ -17,6 +17,14 @@ module ActiveSupport
     def json_response(body, status: 200, headers: {})
       { status: status, body: body.to_json, headers: { "Content-Type" => "application/json" }.merge(headers) }
     end
+
+    # Tests run with a null cache store; this swaps in a real one for tests about caching.
+    def with_memory_cache
+      original, Rails.cache = Rails.cache, ActiveSupport::Cache::MemoryStore.new
+      yield
+    ensure
+      Rails.cache = original
+    end
   end
 end
 

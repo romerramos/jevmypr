@@ -1,7 +1,7 @@
 <%#
   Two panes on desktop: the repository sidebar (kept across visits with data-turbo-permanent)
   and the page's own content. On phones each page shows only its own pane.
-  Locals: page ("repositories" or "pulls"), title, intro, repositories (nil to lazy-load), query, pinned.
+  Locals: page ("repositories" or "pulls"), title, intro, repositories (nil to lazy-load), query, pinned, fetched_at.
   On desktop it fills the window (app-shell) and only the lists scroll.
 %>
 <% content_for :app_shell, "true" %>
@@ -30,7 +30,8 @@
       <% end %>
 
       <% if repositories %>
-        <%= render "repositories/list", repositories: repositories, query: query, pinned: local_assigns[:pinned] %>
+        <%= render "repositories/list", repositories: repositories, query: query, pinned: local_assigns[:pinned],
+                   fetched_at: local_assigns[:fetched_at] %>
       <% else %>
         <%= turbo_frame_tag "repositories", src: repositories_path, class: "flex min-h-0 flex-1 flex-col",
               data: { loading_label: "Loading repositories…" } do %>

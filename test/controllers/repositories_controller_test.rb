@@ -38,6 +38,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "button[aria-pressed=false][aria-label='Pin acme/alpha']"
     assert_select "li[role=separator]", 1
     assert_select "turbo-frame#repositories[data-turbo-prefetch=false]"
+    assert_select "turbo-frame#repositories a[href=?][data-turbo-frame=repositories]", "/repositories?refresh=1", text: /Refresh/
   end
 
   test "search filters and explains an empty result" do
@@ -49,16 +50,16 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#repositories", text: /No repositories match “billing”/
   end
 
-  test "shows recent verdicts, only the user's own" do
+  test "shows accessible recent verdicts, but not another user's private legacy history" do
     user = users(:one)
-    user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: 3, pr_title: "Rotate API keys", pr_url: "https://github.com/acme/web/pull/3", choice: "yes")
+    users(:two).pr_assessments.create!(repository: repositories(:web), head_sha: "abc", repo_full_name: "acme/web", pr_number: 3, pr_title: "Rotate API keys", pr_url: "https://github.com/acme/web/pull/3", choice: "yes")
     users(:two).pr_assessments.create!(repo_full_name: "other/repo", pr_number: 1, pr_title: "Someone else's PR", pr_url: "https://github.com/other/repo/pull/1", choice: "no")
     sign_in_as user
     stub_github_repositories("acme/web")
 
     get repositories_path
 
-    assert_select "h2", "Your recent verdicts"
+    assert_select "h2", "Recent verdicts"
     assert_select "a", text: /Rotate API keys/
     assert_select "a", text: /Someone else's PR/, count: 0
   end

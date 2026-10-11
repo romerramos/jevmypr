@@ -1,0 +1,15 @@
+web:
+  github_id: 101
+  full_name: acme/web
+
+billing:
+  github_id: 102
+  full_name: acme/billing
+
+docs:
+  github_id: 103
+  full_name: acme/docs
+
+vault:
+  github_id: 104
+  full_name: acme/vault

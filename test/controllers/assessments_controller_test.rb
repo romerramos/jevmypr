@@ -3,6 +3,7 @@ require "test_helper"
 class AssessmentsControllerTest < ActionDispatch::IntegrationTest
   setup do
     sign_in_as users(:one)
+    stub_github_repositories("acme/web", "acme/vault", "acme/docs")
   end
 
   test "asks Jev about the pull request, stores the verdict and shows it" do
@@ -15,6 +16,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
 
     assessment = PrAssessment.last
     assert_redirected_to assessment_path(assessment)
+    assert_equal repositories(:web), assessment.repository
     assert_equal "sha-7", assessment.head_sha
     assert_equal [ "acme/web", 7, "yes", "jev-1.13.0" ], [ assessment.repo_full_name, assessment.pr_number, assessment.choice, assessment.jev_model ]
     assert_equal 0.7, assessment.probabilities["yes"]
@@ -32,6 +34,8 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_select "main progress", 3
     assert_select "li", text: /sessions_controller\.rb.*Human review/m
     assert_select "form.ask-jev[action=?] button", "/repositories/acme/web/pull_requests/7/assessments", text: /Ask\s*Jev\s*again/
+    assert_select "form.ask-jev input[name=fresh][value='1']"
+    assert_select "[aria-label='Verdict privacy']", text: /Shared repository verdict/
     assert_select ".ask-jev-overlay"
   end
 
@@ -44,9 +48,10 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ 10, 2 ], PrAssessment.last.values_at(:input_tokens, :output_tokens)
   end
 
-  test "a used-up weekly quota stops before any GitHub or Jev call" do
+  test "a used-up weekly quota stops new analysis after verifying access and the current head" do
     limit = JevAllowance::LIMITS.weekly_verdicts_per_user
-    limit.times { |i| create_assessment(users(:one), title: "PR #{i}", number: i, created_at: 1.day.ago) }
+    limit.times { users(:one).jev_requests.create!(state: "succeeded", sent_at: 1.day.ago, created_at: 1.day.ago) }
+    stub_github_pull_request
 
     assert_no_difference -> { PrAssessment.count } do
       post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
@@ -54,16 +59,17 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to repository_pull_requests_path(owner: "acme", repo: "web")
     assert_match "used all #{limit} verdicts", flash[:alert]
-    assert_not_requested :any, /api\.github\.com|typesafe/
+    assert_not_requested :post, Jev::Client::URL
+    assert_not_requested :get, "#{ApiStubs::GITHUB}/repositories/101/pulls/7/files", query: hash_including({})
   end
 
   test "asking is limited to a few times a minute per user" do
     stub_github_pull_request
     stub_jev(choice: "no")
 
-    5.times { post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7) }
+    5.times { post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7), params: { fresh: "1" } }
     assert_difference -> { PrAssessment.count }, 0 do
-      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
+      post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7), params: { fresh: "1" }
     end
     assert_match "a lot of pull requests at once", flash[:alert]
   end
@@ -91,11 +97,11 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to repository_pull_requests_path(owner: "acme", repo: "web")
     assert_match "too big for Jev", flash[:alert]
     assert_no_match "HTTP 400", flash[:alert]
-    assert_equal [ "acme/web", 7, "sha-7" ], users(:one).oversized_pull_requests.sole.values_at(:repo_full_name, :pr_number, :head_sha)
+    assert_equal [ "acme/web", 7, "sha-7", nil ], repositories(:web).oversized_pull_requests.sole.values_at(:repo_full_name, :pr_number, :head_sha, :user_id)
   end
 
   test "asking again about an unchanged pull request that's too big doesn't call Jev" do
-    users(:one).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 7, head_sha: "sha-7")
+    repositories(:web).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 7, head_sha: "sha-7")
     stub_github_pull_request
 
     post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 7)
@@ -105,7 +111,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a too-big pull request that changed since can be asked about again" do
-    users(:one).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 7, head_sha: "old-sha")
+    repositories(:web).oversized_pull_requests.create!(repo_full_name: "acme/web", pr_number: 7, head_sha: "old-sha")
     stub_github_pull_request
     stub_jev(choice: "no")
 
@@ -115,7 +121,7 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a missing pull request returns to the picker" do
-    stub_request(:get, "#{ApiStubs::GITHUB}/repos/acme/web/pulls/99").to_return(json_response({}, status: 404))
+    stub_request(:get, "#{ApiStubs::GITHUB}/repositories/101/pulls/99").to_return(json_response({}, status: 404))
 
     post repository_pull_request_assessments_path(owner: "acme", repo: "web", pull_request_number: 99)
 
@@ -123,16 +129,16 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
     assert_match "couldn't find", flash[:alert]
   end
 
-  test "index lists the user's verdicts, newest first" do
+  test "index lists accessible shared verdicts including teammates, newest first" do
     user = users(:one)
     create_assessment(user, title: "Older", created_at: 2.days.ago)
     create_assessment(user, title: "Newer")
-    create_assessment(users(:two), title: "Not mine")
+    create_assessment(users(:two), title: "Teammate's result")
 
     get assessments_path
 
-    assert_select "h1", "Your verdicts"
-    assert_equal [ "Newer", "Older" ], css_select(".list-row .font-medium").map(&:text)
+    assert_select "h1", "Verdicts"
+    assert_equal [ "Teammate's result", "Newer", "Older" ], css_select(".list-row .font-medium").map(&:text)
     assert_select "nav[aria-label=Pagination]", 0
   end
 
@@ -196,7 +202,8 @@ class AssessmentsControllerTest < ActionDispatch::IntegrationTest
 
   private
     def create_assessment(user, title:, repo: "acme/web", number: 1, choice: "no", created_at: Time.current)
-      user.pr_assessments.create!(repo_full_name: repo, pr_number: number, pr_title: title,
+      repository = Repository.find_by!(full_name: repo)
+      user.pr_assessments.create!(repository: repository, head_sha: "sha-#{number}", repo_full_name: repo, pr_number: number, pr_title: title,
                                   pr_url: "https://github.com/#{repo}/pull/#{number}", choice: choice, created_at: created_at)
     end
 

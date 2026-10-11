@@ -3,7 +3,8 @@ require "test_helper"
 class FeedbacksControllerTest < ActionDispatch::IntegrationTest
   setup do
     sign_in_as users(:one)
-    @assessment = users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 7, pr_title: "Fix login redirect",
+    stub_github_repositories("acme/web")
+    @assessment = users(:one).pr_assessments.create!(repository: repositories(:web), head_sha: "sha-7", repo_full_name: "acme/web", pr_number: 7, pr_title: "Fix login redirect",
                                                      pr_url: "https://github.com/acme/web/pull/7", choice: "no")
   end
 
@@ -20,7 +21,7 @@ class FeedbacksControllerTest < ActionDispatch::IntegrationTest
     patch assessment_feedback_path(@assessment), params: { feedback: { choice: "no" } }
 
     assert_redirected_to assessment_path(@assessment)
-    assert @assessment.reload.agreed?
+    assert users(:one).feedbacks.find_by!(pr_assessment: @assessment).agreed?
     follow_redirect!
     assert_select "turbo-frame#feedback", text: /You agreed with Jev/
   end
@@ -38,8 +39,8 @@ class FeedbacksControllerTest < ActionDispatch::IntegrationTest
   test "disagreeing saves what it should have been and why" do
     patch assessment_feedback_path(@assessment), params: { feedback: { choice: "yes", reason: "It touches auth." } }
 
-    @assessment.reload
-    assert_equal [ "yes", "It touches auth." ], [ @assessment.feedback_choice, @assessment.feedback_reason ]
+    feedback = users(:one).feedbacks.find_by!(pr_assessment: @assessment)
+    assert_equal [ "yes", "It touches auth." ], feedback.values_at(:choice, :reason)
     follow_redirect!
     assert_select "turbo-frame#feedback", text: /needed a human review/i
     assert_select "turbo-frame#feedback", text: /It touches auth\./
@@ -50,32 +51,33 @@ class FeedbacksControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_select "turbo-frame#feedback .text-error", text: /Pick what the verdict should have been/
-    assert_nil @assessment.reload.feedback_choice
+    assert_not users(:one).feedbacks.exists?(pr_assessment: @assessment)
   end
 
   test "changing your mind clears the vote" do
-    @assessment.record_feedback!(choice: "yes", reason: "Risky")
+    users(:one).feedbacks.new(pr_assessment: @assessment).record!(choice: "yes", reason: "Risky")
 
     delete assessment_feedback_path(@assessment)
 
     assert_redirected_to assessment_path(@assessment)
-    assert_not @assessment.reload.feedback?
+    assert_not users(:one).feedbacks.exists?(pr_assessment: @assessment)
   end
 
-  test "you can only vote on your own verdicts" do
+  test "you cannot vote on another user's private legacy verdict" do
     other = users(:two).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 8, pr_title: "Other",
                                               pr_url: "https://github.com/acme/web/pull/8", choice: "no")
 
     patch assessment_feedback_path(other), params: { feedback: { choice: "yes" } }
 
     assert_response :not_found
-    assert_nil other.reload.feedback_choice
+    assert_empty other.feedbacks
   end
 
   test "the verdicts list sums up your votes" do
-    @assessment.record_feedback!(choice: "yes")
-    users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 9, pr_title: "Docs",
-                                       pr_url: "https://github.com/acme/web/pull/9", choice: "no").record_feedback!(choice: "no")
+    users(:one).feedbacks.new(pr_assessment: @assessment).record!(choice: "yes")
+    docs = users(:one).pr_assessments.create!(repo_full_name: "acme/web", pr_number: 9, pr_title: "Docs",
+                                             pr_url: "https://github.com/acme/web/pull/9", choice: "no")
+    users(:one).feedbacks.new(pr_assessment: docs).record!(choice: "no")
 
     get assessments_path
 

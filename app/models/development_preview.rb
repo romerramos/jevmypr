@@ -38,9 +38,9 @@ module DevelopmentPreview
 
   def self.repositories
     [
-      repo("acme/web", "The storefront", private: false),
-      repo("acme/billing", "Invoices and refunds", private: true),
-      repo("acme/docs", "The public handbook", private: false)
+      repo(-101, "acme/web", "The storefront", private: false),
+      repo(-102, "acme/billing", "Invoices and refunds", private: true),
+      repo(-103, "acme/docs", "The public handbook", private: false)
     ]
   end
 
@@ -95,9 +95,9 @@ module DevelopmentPreview
     Jev::Client::Response.new(model: MODEL, answers: answers, usage: { "input_tokens" => 0, "output_tokens" => 0 })
   end
 
-  def self.repo(full_name, description, private:)
+  def self.repo(github_id, full_name, description, private:)
     owner, name = full_name.split("/", 2)
-    Github::Client::Repository.new(full_name: full_name, name: name, owner: owner, private: private,
+    Github::Client::Repository.new(github_id: github_id, full_name: full_name, name: name, owner: owner, private: private,
                                    description: description, pushed_at: Time.current)
   end
 

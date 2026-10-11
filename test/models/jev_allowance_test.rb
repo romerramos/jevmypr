@@ -56,10 +56,29 @@ class JevAllowanceTest < ActiveSupport::TestCase
     assert_in_delta 0.084, JevAllowance.new(@user, now: @now).monthly_spend_usd, 1e-9
   end
 
+  test "weekly quota includes live reservations and paid failures, not expired or unsent failures" do
+    @user.jev_requests.create!(created_at: @now - 1.second)
+    @user.jev_requests.create!(created_at: @now - JevRequest::RESERVATION_LIFETIME)
+    @user.jev_requests.create!(created_at: @now - 1.hour, sent_at: @now - 45.minutes)
+    @user.jev_requests.create!(state: "failed", created_at: @now - 1.minute)
+    @user.jev_requests.create!(state: "failed", created_at: @now - 1.day, sent_at: @now - 1.day)
+
+    assert_equal 3, JevAllowance.new(@user, now: @now).weekly_used
+  end
+
+  test "monthly spend follows the Jev call time rather than the reservation time" do
+    @user.jev_requests.create!(state: "succeeded", created_at: @now.beginning_of_month - 1.minute,
+      sent_at: @now.beginning_of_month, input_tokens: 1234, output_tokens: 17)
+    @user.jev_requests.create!(state: "succeeded", created_at: @now.beginning_of_month,
+      sent_at: @now.beginning_of_month - 1.second, input_tokens: 500_000_000)
+    @user.jev_requests.create!(created_at: @now, input_tokens: 500_000_000)
+
+    assert_in_delta 0.000052542, JevAllowance.new(@user, now: @now).monthly_spend_usd, 1e-12
+  end
+
   private
     def verdict(user, at:, number:, input_tokens: 0, output_tokens: 0)
-      user.pr_assessments.create!(repo_full_name: "acme/web", pr_number: number, pr_title: "PR #{number}", choice: "no",
-                                  pr_url: "https://github.com/acme/web/pull/#{number}", created_at: at,
-                                  input_tokens: input_tokens, output_tokens: output_tokens)
+      user.jev_requests.create!(state: "succeeded", sent_at: at, created_at: at, pr_number: number,
+                                input_tokens: input_tokens, output_tokens: output_tokens)
     end
 end

@@ -6,7 +6,13 @@ class ApplicationController < ActionController::Base
   # Changes to the importmap will invalidate the etag for HTML responses
   stale_when_importmap_changes
 
+  before_action :prevent_private_page_caching
+
   private
+    def prevent_private_page_caching
+      response.headers["Cache-Control"] = "no-store" if Current.user
+    end
+
     def previewing?
       DevelopmentPreview.enabled? && Current.user&.github_uid == DevelopmentPreview::UID
     end

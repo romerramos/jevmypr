@@ -1,5 +1,4 @@
-# Lets people remove everything Jev my PR stores about them: their user record, encrypted GitHub
-# token, sessions, verdicts, pinned repositories and too-big marks.
+# Removes personal data and requester links. Repository snapshots and anonymous usage survive.
 class AccountsController < ApplicationController
   def destroy
     user = Current.user
@@ -7,7 +6,8 @@ class AccountsController < ApplicationController
     user.destroy!
 
     redirect_to new_session_path, status: :see_other,
-      notice: "Your account, verdicts and pins are deleted. To also revoke this app's GitHub access, " \
+      notice: "Your account, token, sessions, pins and private votes are deleted. Shared repository verdicts stay, " \
+              "without a link to your account; private legacy snapshots are deleted. To also revoke this app's GitHub access, " \
               "go to GitHub → Settings → Applications → Authorized OAuth Apps."
   end
 end

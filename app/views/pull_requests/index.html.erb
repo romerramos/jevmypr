@@ -50,6 +50,8 @@
 
   <%= turbo_frame_tag "pull_request_results", class: "flex min-h-0 flex-1 flex-col",
         data: { loading_label: "Loading pull requests…" } do %>
+    <%= render "shared/freshness", at: @fetched_at, url: pull_requests_path_for(@repo, q: @query.presence, refresh: 1),
+          frame: "pull_request_results", label: "pull requests" %>
     <div class="pane-scroll">
     <% if @pull_requests.empty? %>
       <div class="flex flex-col items-center justify-center gap-3 p-10 text-center text-base-content/60">
@@ -59,7 +61,7 @@
     <% else %>
       <ul class="flex flex-col p-2" aria-label="Open pull requests in <%= @repo %>">
         <% @pull_requests.each do |pr| %>
-          <li><%= render "pull_requests/row", pr: pr, repo: @repo, previous: @previous_verdicts[pr.number], oversized: @oversized[pr.number] %></li>
+          <li><%= render "pull_requests/row", pr: pr, repo: @repo, previous: @previous_verdicts[pr.number], oversized: @oversized[[pr.number, pr.head_sha]] %></li>
         <% end %>
       </ul>
     <% end %>

@@ -1,10 +1,12 @@
 <%#
-  Locals: repositories (pinned first), query, pinned (Set of full names).
+  Locals: repositories (pinned first), query, pinned (Set of full names), fetched_at (when the list was read).
   Hover prefetch is off here: each repository page costs a GitHub API call.
 %>
 <% pinned = local_assigns[:pinned] || Set.new %>
 <%= turbo_frame_tag "repositories", class: "flex min-h-0 flex-1 flex-col",
       data: { loading_label: "Loading repositories…", turbo_prefetch: false } do %>
+  <%= render "shared/freshness", at: local_assigns[:fetched_at], url: repositories_path(q: query.presence, refresh: 1),
+        frame: "repositories", label: "repositories" %>
   <div class="pane-scroll">
   <% if repositories.empty? %>
     <p class="p-6 text-center text-base-content/60">
