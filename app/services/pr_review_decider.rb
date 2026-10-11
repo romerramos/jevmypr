@@ -23,7 +23,7 @@ class PrReviewDecider
 
     def initialize(pull_request)
       @pull_request = pull_request
-      super("##{pull_request.number} is too big for Jev to read in one go.")
+      super("#{pull_request.number ? "##{pull_request.number}" : "This diff"} is too big for Jev to read in one go.")
     end
   end
 

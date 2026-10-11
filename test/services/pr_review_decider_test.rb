@@ -125,4 +125,47 @@ class PrReviewDeciderTest < ActiveSupport::TestCase
     error = assert_raises(PrReviewDecider::TooLarge) { PrReviewDecider.new(github: FakeGithub.new, jev: jev).decide("acme/web", 7) }
     assert_equal "abc123", error.pull_request.head_sha
   end
+
+  test "a sent diff gives Jev the same input as the same pull request from GitHub" do
+    files = [ FakeGithub.file("app/auth.rb", "+token check"), FakeGithub.file("logo.png", nil), FakeGithub.file("README.md", "+typo") ]
+    answer = { "choice" => "llm_enough", "probabilities" => {}, "confidence" => 0.6 }
+    github_jev, payload_jev = FakeJev.new(answer), FakeJev.new(answer)
+    github = FakeGithub.new(files: files)
+    pr = github.pull_request("acme/web", 7).with(additions: 3, deletions: 3, changed_files: 3)
+    diff = DiffPayload.new(repository: "acme/web", title: pr.title, description: pr.body, base_branch: pr.base_ref, head_branch: pr.head_ref,
+                           files: files.map(&:to_h))
+
+    PrReviewDecider.new(github: github, jev: github_jev).decide("acme/web", 7, pull_request: pr)
+    result = PrReviewDecider.new(github: nil, jev: payload_jev).decide(diff.repository, nil, pull_request: diff.pull_request, files: diff.files)
+
+    assert_equal github_jev.calls.sole[:questions], payload_jev.calls.sole[:questions]
+    assert_equal github_jev.calls.sole[:state].except(:author), payload_jev.calls.sole[:state].except(:author)
+    assert_nil payload_jev.calls.sole[:state][:author]
+    assert_equal [ nil, :no_patch, nil ], result.files.map(&:skipped)
+  end
+
+  test "a sent diff is budgeted and skipped like a pull request" do
+    half = PrReviewDecider::MAX_DIFF_BYTES / 2
+    diff = DiffPayload.new(files: [ { filename: "a.rb", patch: "+" * half }, { filename: "big.rb", patch: "+" * (half + 1) },
+                                    { filename: "logo.png" }, *(PrReviewDecider::MAX_FILE_QUESTIONS).times.map { |i| { filename: "f#{i}.rb", patch: "+#{i}" } } ])
+    jev = FakeJev.new({ "choice" => "no", "probabilities" => {}, "confidence" => 0.5 })
+
+    result = PrReviewDecider.new(github: nil, jev: jev).decide(nil, nil, pull_request: diff.pull_request, files: diff.files)
+
+    assert result.diff_truncated
+    assert_equal [ nil, :too_large, :no_patch ], result.files.first(3).map(&:skipped)
+    assert_equal [ :too_many ], result.files.last(1).map(&:skipped)
+  end
+
+  test "a sent diff too big for Jev raises TooLarge without a pull request number" do
+    jev = Object.new
+    def jev.ask(**) = raise(Jev::Client::TooLarge, "too big")
+    diff = DiffPayload.new(files: [ { filename: "a.rb", patch: "+a" } ])
+
+    error = assert_raises(PrReviewDecider::TooLarge) do
+      PrReviewDecider.new(github: nil, jev: jev).decide(nil, nil, pull_request: diff.pull_request, files: diff.files)
+    end
+    assert_equal diff.sha256, error.pull_request.head_sha
+    assert_equal "This diff is too big for Jev to read in one go.", error.message
+  end
 end
