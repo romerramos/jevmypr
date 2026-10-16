@@ -78,4 +78,4 @@ gem "faraday"
 gem "faraday-retry"
 
 # Pagination [https://ddnexus.github.io/pagy/]
-gem "pagy", "~> 43.6"
+gem "pagy", "~> 43.7"
